@@ -250,7 +250,8 @@ func compileArchive(
 			if ext := filepath.Ext(stem); ext != "" {
 				stem = stem[:len(stem)-len(ext)]
 			}
-			coverVar := fmt.Sprintf("Cover_%s_%d_%s", sanitizePathForIdentifier(importPath), i, sanitizePathForIdentifier(stem))
+			snakeCoverVar := fmt.Sprintf("Cover_%s_%d_%s", sanitizePathForIdentifier(importPath), i, sanitizePathForIdentifier(stem))
+			coverVar := snakeToCamel(snakeCoverVar)
 			coverSrc := filepath.Join(workDir, fmt.Sprintf("cover_%d.go", i))
 			if err := instrumentForCoverage(goenv, origSrc, srcName, coverVar, coverMode, coverSrc); err != nil {
 				return err
@@ -521,4 +522,16 @@ func sanitizePathForIdentifier(path string) string {
 		}
 		return '_'
 	}, path)
+}
+
+// snakeToCamel converts a snake_case string to CamelCase string
+func snakeToCamel(s string) string {
+	words := strings.Split(s, "_")
+
+	result := ""
+	for _, w := range words {
+		result += strings.ToUpper(w[:1]) + strings.ToLower(w[1:])
+	}
+
+	return result
 }

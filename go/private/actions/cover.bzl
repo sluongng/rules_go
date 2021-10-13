@@ -26,6 +26,15 @@ def _sanitize(s):
     """Replaces /, -, and . with _."""
     return s.replace("/", "_").replace("-", "_").replace(".", "_")
 
+# convert string from snake_case to CamelCase
+def _snake_to_camel(s):
+    words = s.split("_")
+    out = ""
+    for w in words:
+        out += w[:1].upper()
+        out += w[1:].lower()
+    return out
+
 def emit_cover(go, source):
     """See go/toolchains.rst#cover for full documentation."""
 
@@ -44,7 +53,8 @@ def emit_cover(go, source):
         _, pkgpath = effective_importpath_pkgpath(source.library)
         srcname = pkgpath + "/" + orig.basename if pkgpath else orig.path
 
-        cover_var = "Cover_%s_%s" % (_sanitize(pkgpath), _sanitize(src.basename[:-3]))
+        snake_cover_var = "Cover_%s_%s" % (_sanitize(pkgpath), _sanitize(src.basename[:-3]))
+        cover_var = _snake_to_camel(snake_cover_var)
         out = go.declare_file(go, path = "Cover_%s" % _sanitize(src.basename[:-3]), ext = ".cover.go")
         covered_src_map.pop(src, None)
         covered_src_map[out] = orig
