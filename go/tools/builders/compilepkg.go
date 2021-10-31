@@ -184,6 +184,15 @@ func compileArchive(
 	}
 	defer cleanup()
 
+	// As part of compilation process, rules_go does generate and/or rewrite code
+	// based on the original source files.  We should only run static analysis
+	// over original source files and not the generated source as end users have
+	// little control over the generated source.
+	//
+	// nogoSrcsTranslate maps generated/rewritten source files back to original source.
+	// If the original source path is an empty string, exclude generated source from nogo run.
+	nogoSrcsTranslate := make(map[string]string)
+
 	if len(srcs.goSrcs) == 0 {
 		// We need to run the compiler to create a valid archive, even if there's
 		// nothing in it. GoPack will complain if we try to add assembly or cgo
@@ -194,13 +203,13 @@ func compileArchive(
 		// otherwise platforms without sandbox support may race to create/remove
 		// the file during parallel compilation.
 		emptyDir := filepath.Join(filepath.Dir(outPath), sanitizePathForIdentifier(importPath))
-		if err := os.Mkdir(emptyDir, 0700); err != nil {
+		if err := os.Mkdir(emptyDir, 0o700); err != nil {
 			return fmt.Errorf("could not create directory for _empty.go: %v", err)
 		}
 		defer os.RemoveAll(emptyDir)
 
 		emptyPath := filepath.Join(emptyDir, "_empty.go")
-		if err := os.WriteFile(emptyPath, []byte("package empty\n"), 0666); err != nil {
+		if err := os.WriteFile(emptyPath, []byte("package empty\n"), 0o666); err != nil {
 			return err
 		}
 
@@ -210,6 +219,8 @@ func compileArchive(
 			matched:  true,
 			pkg:      "empty",
 		})
+
+		nogoSrcsTranslate[emptyPath] = ""
 	}
 	packageName := srcs.goSrcs[0].pkg
 	var goSrcs, cgoSrcs []string
@@ -290,6 +301,7 @@ func compileArchive(
 
 			if i < len(goSrcs) {
 				goSrcs[i] = coverSrc
+				nogoSrcsTranslate[coverSrc] = origSrc
 			} else {
 				cgoSrcs[i-len(goSrcs)] = coverSrc
 			}
@@ -312,7 +324,7 @@ func compileArchive(
 		gcFlags = append(gcFlags, createTrimPath(gcFlags, srcDir))
 	} else {
 		if cgoExportHPath != "" {
-			if err := ioutil.WriteFile(cgoExportHPath, nil, 0666); err != nil {
+			if err := ioutil.WriteFile(cgoExportHPath, nil, 0o666); err != nil {
 				return err
 			}
 		}
@@ -390,11 +402,20 @@ func compileArchive(
 	// Run nogo concurrently.
 	var nogoChan chan error
 	outFactsPath := filepath.Join(workDir, nogoFact)
-	if nogoPath != "" {
+	nogoSrcs := make([]string, 0, len(goSrcs))
+	for _, goSrc := range goSrcs {
+		if originSrc, ok := nogoSrcsTranslate[goSrc]; ok && originSrc != "" {
+			nogoSrcs = append(nogoSrcs, originSrc)
+			continue
+		}
+
+		nogoSrcs = append(nogoSrcs, goSrc)
+	}
+	if nogoPath != "" && len(nogoSrcs) > 0 {
 		ctx, cancel := context.WithCancel(context.Background())
 		nogoChan = make(chan error)
 		go func() {
-			nogoChan <- runNogo(ctx, workDir, nogoPath, goSrcs, deps, packagePath, importcfgPath, outFactsPath)
+			nogoChan <- runNogo(ctx, workDir, nogoPath, nogoSrcs, deps, packagePath, importcfgPath, outFactsPath)
 		}()
 		defer func() {
 			if nogoChan != nil {
