@@ -36,6 +36,7 @@ go_test(
     data = [
         "test.txt",
         "//go/tools/bazel/runfiles/testprog",
+        "@bazel_tools//tools/bash/runfiles",
     ],
     rundir = ".",
     deps = [":runfiles"],

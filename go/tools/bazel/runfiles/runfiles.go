@@ -39,8 +39,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
+)
+
+const (
+	directoryVar    = "RUNFILES_DIR"
+	manifestFileVar = "RUNFILES_MANIFEST_FILE"
 )
 
 // Runfiles allows access to Bazel runfiles.  Use New to create Runfiles
@@ -57,68 +62,84 @@ type Runfiles struct {
 // New creates a given Runfiles object.  By default, it uses os.Args and the
 // RUNFILES_MANIFEST_FILE and RUNFILES_DIR environmental variables to find the
 // runfiles location.  This can be overwritten by passing some options.
+//
+// See section “Runfiles discovery” in
+// https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub.
 func New(opts ...Option) (*Runfiles, error) {
 	var o options
 	for _, a := range opts {
 		a.apply(&o)
 	}
-	if o.program == "" {
-		o.program = ProgramName(os.Args[0])
-	}
+
 	if o.manifest == "" {
-		o.manifest = ManifestFile(os.Getenv("RUNFILES_MANIFEST_FILE"))
+		o.manifest = ManifestFile(os.Getenv(manifestFileVar))
 	}
-	if o.directory == "" {
-		o.directory = Directory(os.Getenv("RUNFILES_DIR"))
-	}
-	// See section “Runfiles discovery” in
-	// https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub.
 	if o.manifest != "" {
 		return o.manifest.new()
 	}
+
+	if o.directory == "" {
+		o.directory = Directory(os.Getenv(directoryVar))
+	}
 	if o.directory != "" {
 		return o.directory.new(), nil
+	}
+
+	if o.program == "" {
+		o.program = ProgramName(os.Args[0])
 	}
 	manifest := ManifestFile(o.program + ".runfiles_manifest")
 	if stat, err := os.Stat(string(manifest)); err == nil && stat.Mode().IsRegular() {
 		return manifest.new()
 	}
+
 	dir := Directory(o.program + ".runfiles")
 	if stat, err := os.Stat(string(dir)); err == nil && stat.IsDir() {
 		return dir.new(), nil
 	}
+
 	return nil, errors.New("runfiles: no runfiles found")
 }
 
-// Path returns the absolute path name of a runfile.  The runfile name must be
-// a relative path, using the slash (not backslash) as directory separator.  If
-// r is the zero Runfiles object, Path always returns an error.  If the
-// runfiles manifest maps s to an empty name (indicating an empty runfile not
-// present in the filesystem), Path returns an error that wraps ErrEmpty.
+// Path returns the absolute path name of a runfile.  The runfile name must be a
+// runfile-root relative path, using the slash (not backslash) as directory separator.
+// If r is the zero Runfiles object, Path always returns an error.  If the runfiles
+// manifest maps s to an empty name (indicating an empty runfile not present in the
+// filesystem), Path returns an error that wraps ErrEmpty.
+//
+// See section “Library interface” in
+// https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub.
 func (r *Runfiles) Path(s string) (string, error) {
-	// See section “Library interface” in
-	// https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub.
-	if s == "" {
-		return "", errors.New("runfiles: name may not be empty")
-	}
-	if path.IsAbs(s) {
-		return "", fmt.Errorf("runfiles: name %q may not be absolute", s)
-	}
-	if s != path.Clean(s) {
-		return "", fmt.Errorf("runfiles: name %q must be canonical", s)
-	}
-	if s == ".." || strings.HasPrefix(s, "../") {
-		return "", fmt.Errorf("runfiles: name %q may not contain a parent directory", s)
-	}
-	impl := r.impl
-	if impl == nil {
+	if r.impl == nil {
 		return "", errors.New("runfiles: uninitialized Runfiles object")
 	}
-	p, err := impl.path(s)
+
+	if s == "" {
+		return "", errors.New("runfiles: path may not be empty")
+	}
+	if !isNormalizedPath(s) {
+		return "", fmt.Errorf("runfiles: path %q is not normalized", s)
+	}
+
+	// See https://github.com/bazelbuild/bazel/commit/b961b0ad6cc2578b98d0a307581e23e73392ad02
+	if strings.HasPrefix(s, `\`) {
+		return "", fmt.Errorf("runfiles: path %q is absolute without a drive letter", s)
+	}
+	if filepath.IsAbs(s) {
+		return s, nil
+	}
+
+	p, err := r.impl.path(s)
 	if err != nil {
 		return "", Error{s, err}
 	}
 	return p, nil
+}
+
+func isNormalizedPath(s string) bool {
+	return !strings.HasPrefix(s, "../") && !strings.Contains(s, "/..") &&
+		!strings.HasPrefix(s, "./") && !strings.HasSuffix(s, "/.") &&
+		!strings.Contains(s, "/./") && !strings.Contains(s, "//")
 }
 
 // Env returns additional environmental variables to pass to subprocesses.
@@ -155,7 +176,7 @@ type Error struct {
 
 // Error implements error.Error.
 func (e Error) Error() string {
-	return fmt.Sprintf("runfile %q: %s", e.Name, e.Err.Error())
+	return fmt.Sprintf("runfile %s: %s", e.Name, e.Err.Error())
 }
 
 // Unwrap returns the underlying error, for errors.Unwrap.

@@ -18,7 +18,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 )
@@ -33,6 +32,7 @@ func (f ManifestFile) new() (*Runfiles, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &Runfiles{m, manifestFileVar + "=" + string(f)}, nil
 }
 
@@ -44,6 +44,7 @@ func (f ManifestFile) parse() (manifest, error) {
 		return nil, fmt.Errorf("runfiles: can’t open manifest file: %w", err)
 	}
 	defer r.Close()
+
 	s := bufio.NewScanner(r)
 	m := make(manifest)
 	for s.Scan() {
@@ -53,9 +54,11 @@ func (f ManifestFile) parse() (manifest, error) {
 		}
 		m[fields[0]] = filepath.FromSlash(fields[1])
 	}
+
 	if err := s.Err(); err != nil {
 		return nil, fmt.Errorf("runfiles: error parsing manifest file %s: %w", f, err)
 	}
+
 	return m, nil
 }
 
@@ -67,16 +70,16 @@ func (m manifest) path(s string) (string, error) {
 	if ok {
 		return r, nil
 	}
+
 	// If path references a runfile that lies under a directory that itself is a
 	// runfile, then only the directory is listed in the manifest. Look up all
 	// prefixes of path in the manifest.
-	for prefix := s; prefix != ""; prefix, _ = path.Split(prefix) {
-		prefix = strings.TrimSuffix(prefix, "/")
+	for prefix := s; prefix != ""; prefix, _ = filepath.Split(prefix) {
+		prefix = strings.TrimSuffix(prefix, string(os.PathSeparator))
 		if prefixMatch, ok := m[prefix]; ok {
 			return prefixMatch + strings.TrimPrefix(s, prefix), nil
 		}
 	}
+
 	return "", os.ErrNotExist
 }
-
-const manifestFileVar = "RUNFILES_MANIFEST_FILE"

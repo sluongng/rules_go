@@ -28,5 +28,3 @@ func (d Directory) new() *Runfiles {
 func (d Directory) path(s string) (string, error) {
 	return filepath.Join(string(d), filepath.FromSlash(s)), nil
 }
-
-const directoryVar = "RUNFILES_DIR"
