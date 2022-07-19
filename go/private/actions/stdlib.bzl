@@ -73,6 +73,20 @@ def _sdk_stdlib(go):
         root_file = go.sdk.root_file,
     )
 
+def _build_stdlib_mnemonic_string(mode):
+    result = ["GoStdlib", mode.goos.capitalize(), mode.goarch.capitalize()]
+    if mode.race:
+        result.append("Race")
+
+    if not mode.pure:
+        result.append("CGo")
+        if mode.link != LINKMODE_NORMAL:
+            result.append("Link")
+            for l in mode.link.split("-"):
+                result.append(l.capitalize())
+
+    return "".join(result)
+
 def _build_stdlib(go):
     pkg = go.declare_directory(go, path = "pkg")
     src = go.declare_directory(go, path = "src")
@@ -109,7 +123,7 @@ def _build_stdlib(go):
     go.actions.run(
         inputs = inputs,
         outputs = outputs,
-        mnemonic = "GoStdlib",
+        mnemonic = _build_stdlib_mnemonic_string(go.mode),
         executable = go.toolchain._builder,
         arguments = [args],
         env = env,
