@@ -103,35 +103,36 @@ func New(opts ...Option) (*Runfiles, error) {
 
 // Path returns the absolute path name of a runfile.  The runfile name must be a
 // runfile-root relative path, using the slash (not backslash) as directory separator.
+// It is typically of the form "repo/path/to/pkg/file".
 // If r is the zero Runfiles object, Path always returns an error.  If the runfiles
 // manifest maps s to an empty name (indicating an empty runfile not present in the
 // filesystem), Path returns an error that wraps ErrEmpty.
 //
 // See section “Library interface” in
 // https://docs.google.com/document/d/e/2PACX-1vSDIrFnFvEYhKsCMdGdD40wZRBX3m3aZ5HhVj4CtHPmiXKDCxioTUbYsDydjKtFDAzER5eg7OjJWs3V/pub.
-func (r *Runfiles) Path(s string) (string, error) {
+func (r *Runfiles) Path(path string) (string, error) {
 	if r.impl == nil {
 		return "", errors.New("runfiles: uninitialized Runfiles object")
 	}
 
-	if s == "" {
+	if path == "" {
 		return "", errors.New("runfiles: path may not be empty")
 	}
-	if !isNormalizedPath(s) {
-		return "", fmt.Errorf("runfiles: path %q is not normalized", s)
+	if !isNormalizedPath(path) {
+		return "", fmt.Errorf("runfiles: path %q is not normalized", path)
 	}
 
 	// See https://github.com/bazelbuild/bazel/commit/b961b0ad6cc2578b98d0a307581e23e73392ad02
-	if strings.HasPrefix(s, `\`) {
-		return "", fmt.Errorf("runfiles: path %q is absolute without a drive letter", s)
+	if strings.HasPrefix(path, `\`) {
+		return "", fmt.Errorf("runfiles: path %q is absolute without a drive letter", path)
 	}
-	if filepath.IsAbs(s) {
-		return s, nil
+	if filepath.IsAbs(path) {
+		return path, nil
 	}
 
-	p, err := r.impl.path(s)
+	p, err := r.impl.path(path)
 	if err != nil {
-		return "", Error{s, err}
+		return "", Error{path, err}
 	}
 	return p, nil
 }

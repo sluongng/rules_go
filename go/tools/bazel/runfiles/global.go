@@ -43,18 +43,18 @@ func Env() ([]string, error) {
 }
 
 type global struct {
-	once sync.Once
-	r    *Runfiles
-	err  error
+	once     sync.Once
+	runfiles *Runfiles
+	err      error
 }
 
 func (g *global) get() (*Runfiles, error) {
 	g.once.Do(g.init)
-	return g.r, g.err
+	return g.runfiles, g.err
 }
 
 func (g *global) init() {
-	g.r, g.err = New()
+	g.runfiles, g.err = New()
 }
 
 var g global
