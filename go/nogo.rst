@@ -124,13 +124,13 @@ the ``TOOLS_NOGO`` list of dependencies.
 Usage
 ---------------------------------
 
-``nogo`` is invoked automatically when building any Go target in your workspace.
-If any of the analyzers reject the program, the build will fail.
+``nogo``, upon configured, will be invoked automatically when building any Go target in your
+workspace.  If any of the analyzers reject the program, the build will fail.
 
-``nogo`` will run on all Go targets in your workspace, including tests and
-binary targets. It will also run on targets that are imported from other
-workspaces by default. You could exclude the external repositories from ``nogo`` by
-using the `exclude_files` regex in `configuring-analyzers`_.
+``nogo`` will run on all Go targets in your workspace, including tests and binary targets.
+It will also run on targets that are imported from other workspaces by default. You could
+exclude the external repositories from ``nogo`` by using the `exclude_files` regex in
+`configuring-analyzers`_.
 
 Relationship with other linters
 ~~~~~~~~~~~~~~~~~~~~~
