@@ -34,7 +34,7 @@ package txtar
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strings"
 )
 

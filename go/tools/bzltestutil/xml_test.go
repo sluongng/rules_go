@@ -16,7 +16,6 @@ package bzltestutil
 
 import (
 	"bytes"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"

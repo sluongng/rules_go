@@ -17,7 +17,6 @@ package bazel
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 )
 
