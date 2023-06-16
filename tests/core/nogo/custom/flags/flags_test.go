@@ -17,7 +17,7 @@ package flags_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"testing"
 

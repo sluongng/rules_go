@@ -16,7 +16,7 @@ package test_fail_fast_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 

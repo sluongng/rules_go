@@ -15,7 +15,7 @@
 package lcov_coverage_test
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"

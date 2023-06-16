@@ -15,7 +15,6 @@
 package wrapper_test
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"

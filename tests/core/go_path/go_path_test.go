@@ -19,7 +19,6 @@ import (
 	"archive/zip"
 	"flag"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"

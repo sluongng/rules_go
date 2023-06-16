@@ -15,7 +15,7 @@
 package gazelle_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 

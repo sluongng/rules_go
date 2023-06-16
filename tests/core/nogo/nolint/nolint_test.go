@@ -16,7 +16,7 @@ package nolint_test
 
 import (
 	"bytes"
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 

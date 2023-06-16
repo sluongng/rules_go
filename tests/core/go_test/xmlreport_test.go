@@ -16,7 +16,7 @@ package test_filter_test
 
 import (
 	"encoding/xml"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"

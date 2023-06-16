@@ -2,9 +2,10 @@ package cc_libs_test
 
 import (
 	"bytes"
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
-	"io/ioutil"
+	"os"
 	"testing"
+
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 )
 
 // A distinctive substring contained in every absolute path pointing into the
