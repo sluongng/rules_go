@@ -47,7 +47,7 @@ func TestUpdate(t *testing.T) {
 	if err := bazel_testing.RunBazel("run", "//:gazelle"); err != nil {
 		t.Fatal(err)
 	}
-	data, err := ioutil.ReadFile("BUILD.bazel")
+	data, err := os.ReadFile("BUILD.bazel")
 	if err != nil {
 		t.Fatal(err)
 	}

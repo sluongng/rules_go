@@ -29,7 +29,7 @@ import (
 	"go/parser"
 	"go/token"
 	"go/types"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"reflect"
@@ -91,7 +91,7 @@ func run(args []string) error {
 		return fmt.Errorf("errors found by nogo during build-time code analysis:\n%s\n", diagnostics)
 	}
 	if *xPath != "" {
-		if err := ioutil.WriteFile(abs(*xPath), facts, 0o666); err != nil {
+		if err := os.WriteFile(abs(*xPath), facts, 0o666); err != nil {
 			return fmt.Errorf("error writing facts: %v", err)
 		}
 	}
@@ -102,7 +102,7 @@ func run(args []string) error {
 // Adapted from go/src/cmd/compile/internal/gc/main.go. Keep in sync.
 func readImportCfg(file string) (packageFile map[string]string, importMap map[string]string, err error) {
 	packageFile, importMap = make(map[string]string), make(map[string]string)
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return nil, nil, fmt.Errorf("-importcfg: %v", err)
 	}
@@ -632,7 +632,7 @@ func (i *importer) readFacts(pkg *types.Package) ([]byte, error) {
 		return nil, err
 	}
 	defer factReader.Close()
-	return ioutil.ReadAll(factReader)
+	return io.ReadAll(factReader)
 }
 
 type factMultiFlag map[string]string

@@ -20,7 +20,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -91,7 +90,7 @@ func (e *env) workDir() (path string, cleanup func(), err error) {
 		return e.workDirPath, func() {}, nil
 	}
 	// Keep the stem "rules_go_work" in sync with reproducible_binary_test.go.
-	e.workDirPath, err = ioutil.TempDir("", "rules_go_work-")
+	e.workDirPath, err = os.MkdirTemp("", "rules_go_work-")
 	if err != nil {
 		return "", func() {}, err
 	}
@@ -211,7 +210,7 @@ func expandParamsFiles(args []string) ([]string, bool, error) {
 // including newlines and excepting single quotes. Characters outside quoted
 // strings may be escaped with a backslash.
 func readParamsFile(name string) ([]string, error) {
-	data, err := ioutil.ReadFile(name)
+	data, err := os.ReadFile(name)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +271,7 @@ func writeParamsFile(path string, args []string) error {
 		}
 		buf.WriteString("'\n")
 	}
-	return ioutil.WriteFile(path, buf.Bytes(), 0666)
+	return os.WriteFile(path, buf.Bytes(), 0666)
 }
 
 // splitArgs splits a list of command line arguments into two parts: arguments
@@ -414,7 +413,7 @@ func passLongArgsInResponseFiles(cmd *exec.Cmd) (cleanup func()) {
 	if !useResponseFile(cmd.Path, argLen) {
 		return
 	}
-	tf, err := ioutil.TempFile("", "args")
+	tf, err := os.CreateTemp("", "args")
 	if err != nil {
 		log.Fatalf("error writing long arguments to response file: %v", err)
 	}

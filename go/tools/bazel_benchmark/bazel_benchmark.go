@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -196,7 +195,7 @@ func getCommit(rulesGoDir string) (commit string, err error) {
 }
 
 func setupWorkspace(rulesGoDir string) (workspaceDir string, err error) {
-	workspaceDir, err = ioutil.TempDir("", "bazel_benchmark")
+	workspaceDir, err = os.MkdirTemp("", "bazel_benchmark")
 	if err != nil {
 		return "", err
 	}
@@ -206,7 +205,7 @@ func setupWorkspace(rulesGoDir string) (workspaceDir string, err error) {
 		}
 	}()
 	benchmarkDir := filepath.Join(rulesGoDir, "go", "tools", "bazel_benchmark")
-	files, err := ioutil.ReadDir(benchmarkDir)
+	files, err := os.ReadDir(benchmarkDir)
 	if err != nil {
 		return "", err
 	}
@@ -284,12 +283,12 @@ func runBenchmark(b *benchmark) error {
 		if b.incrFile == "" {
 			return errors.New("incrFile not set")
 		}
-		data, err := ioutil.ReadFile(b.incrFile)
+		data, err := os.ReadFile(b.incrFile)
 		if err != nil {
 			return err
 		}
 		data = bytes.Replace(data, []byte("INCR"), []byte("INCR."), -1)
-		if err := ioutil.WriteFile(b.incrFile, data, 0666); err != nil {
+		if err := os.WriteFile(b.incrFile, data, 0666); err != nil {
 			return err
 		}
 	}

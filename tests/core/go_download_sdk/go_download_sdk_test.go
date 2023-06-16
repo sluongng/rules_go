@@ -133,7 +133,7 @@ go_download_sdk(
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			origWorkspaceData, err := ioutil.ReadFile("WORKSPACE")
+			origWorkspaceData, err := os.ReadFile("WORKSPACE")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -151,11 +151,11 @@ go_rules_dependencies()
 
 go_register_toolchains()
 `)
-			if err := ioutil.WriteFile("WORKSPACE", buf.Bytes(), 0666); err != nil {
+			if err := os.WriteFile("WORKSPACE", buf.Bytes(), 0666); err != nil {
 				t.Fatal(err)
 			}
 			defer func() {
-				if err := ioutil.WriteFile("WORKSPACE", origWorkspaceData, 0666); err != nil {
+				if err := os.WriteFile("WORKSPACE", origWorkspaceData, 0666); err != nil {
 					t.Errorf("error restoring WORKSPACE: %v", err)
 				}
 			}()

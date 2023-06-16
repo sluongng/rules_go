@@ -299,7 +299,7 @@ func setupWorkspace(args Args, files []string) (dir string, cleanup func() error
 	if flags := os.Getenv("GO_BAZEL_TEST_BAZELFLAGS"); flags != "" {
 		bazelrcPath := filepath.Join(mainDir, ".bazelrc")
 		content := "build " + flags
-		if err := ioutil.WriteFile(bazelrcPath, []byte(content), 0666); err != nil {
+		if err := os.WriteFile(bazelrcPath, []byte(content), 0666); err != nil {
 			return "", cleanup, err
 		}
 	}
@@ -414,7 +414,7 @@ func extractTxtar(dir, txt string) error {
 				return err
 			}
 		}
-		if err := ioutil.WriteFile(filepath.Join(dir, f.Name), f.Data, 0666); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, f.Name), f.Data, 0666); err != nil {
 			return err
 		}
 	}
@@ -441,7 +441,7 @@ func loadWorkspaceName(workspacePath string) (string, error) {
 	if err == nil {
 		workspacePath = runfilePath
 	}
-	workspaceData, err := ioutil.ReadFile(workspacePath)
+	workspaceData, err := os.ReadFile(workspacePath)
 	if err != nil {
 		return "", err
 	}

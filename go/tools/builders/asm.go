@@ -16,7 +16,6 @@ package main
 
 import (
 	"go/build"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -69,7 +68,7 @@ func buildSymabisFile(goenv *env, sFiles, hFiles []fileInfo, asmhdr string) (str
 
 	// Create a temporary output file. The caller is responsible for deleting it.
 	var symabisName string
-	symabisFile, err := ioutil.TempFile("", "symabis")
+	symabisFile, err := os.CreateTemp("", "symabis")
 	if err != nil {
 		return "", err
 	}

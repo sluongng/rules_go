@@ -80,7 +80,7 @@ func TestLcovCoverageWithTestMain(t *testing.T) {
 	}
 
 	individualCoveragePath := filepath.FromSlash("bazel-testlogs/src/lib_test/coverage.dat")
-	individualCoverageData, err := ioutil.ReadFile(individualCoveragePath)
+	individualCoverageData, err := os.ReadFile(individualCoveragePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestLcovCoverageWithTestMain(t *testing.T) {
 	}
 
 	combinedCoveragePath := filepath.FromSlash("bazel-out/_coverage/_coverage_report.dat")
-	combinedCoverageData, err := ioutil.ReadFile(combinedCoveragePath)
+	combinedCoverageData, err := os.ReadFile(combinedCoveragePath)
 	if err != nil {
 		t.Fatal(err)
 	}

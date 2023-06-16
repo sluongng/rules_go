@@ -91,7 +91,7 @@ func (b *Bazel) run(ctx context.Context, command string, args ...string) (string
 }
 
 func (b *Bazel) Build(ctx context.Context, args ...string) ([]string, error) {
-	jsonFile, err := ioutil.TempFile("", "gopackagesdriver_bep_")
+	jsonFile, err := os.CreateTemp("", "gopackagesdriver_bep_")
 	if err != nil {
 		return nil, fmt.Errorf("unable to create BEP JSON file: %w", err)
 	}

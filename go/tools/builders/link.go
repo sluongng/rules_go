@@ -22,7 +22,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -75,7 +74,7 @@ func link(args []string) error {
 	// If we were given any stamp value files, read and parse them
 	stampMap := map[string]string{}
 	for _, stampfile := range stamps {
-		stampbuf, err := ioutil.ReadFile(stampfile)
+		stampbuf, err := os.ReadFile(stampfile)
 		if err != nil {
 			return fmt.Errorf("Failed reading stamp file %s: %v", stampfile, err)
 		}

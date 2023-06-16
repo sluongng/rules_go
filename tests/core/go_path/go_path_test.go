@@ -100,7 +100,7 @@ func TestArchivePath(t *testing.T) {
 	if archivePath == "" {
 		t.Fatal("-archive_path not set")
 	}
-	dir, err := ioutil.TempDir(os.Getenv("TEST_TEMPDIR"), "TestArchivePath")
+	dir, err := os.MkdirTemp(os.Getenv("TEST_TEMPDIR"), "TestArchivePath")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -206,7 +206,7 @@ func (b *BazelJSONBuilder) Build(ctx context.Context, labels []string, mode Load
 		buildArgs = append(buildArgs, labels...)
 	} else {
 		// To avoid hitting MAX_ARGS length, write labels to a file and use `--target_pattern_file`
-		targetsFile, err := ioutil.TempFile("", "gopackagesdriver_targets_")
+		targetsFile, err := os.CreateTemp("", "gopackagesdriver_targets_")
 		if err != nil {
 			return nil, fmt.Errorf("unable to create target pattern file: %w", err)
 		}

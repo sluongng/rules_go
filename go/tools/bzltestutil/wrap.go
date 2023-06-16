@@ -147,7 +147,7 @@ func writeReport(jsonBuffer bytes.Buffer, pkg string, path string) error {
 	if cerr != nil {
 		return fmt.Errorf("error converting test output to xml: %s", cerr)
 	}
-	if err := ioutil.WriteFile(path, xml, 0664); err != nil {
+	if err := os.WriteFile(path, xml, 0664); err != nil {
 		return fmt.Errorf("error writing test xml: %s", err)
 	}
 	return nil

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -109,7 +108,7 @@ func init() {
 func TestRegisterCoverage(t *testing.T) {
 	var filename = filepath.Join(t.TempDir(), "test_input.go")
 	for _, test := range tests {
-		if err := ioutil.WriteFile(filename, []byte(test.in), 0666); err != nil {
+		if err := os.WriteFile(filename, []byte(test.in), 0666); err != nil {
 			t.Errorf("writing input file: %v", err)
 			return
 		}

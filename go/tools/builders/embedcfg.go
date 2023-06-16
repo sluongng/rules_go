@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -112,7 +111,7 @@ func buildEmbedcfgFile(goSrcs []fileInfo, embedSrcs, embedRootDirs []string, wor
 		return "", err
 	}
 	embedcfgName := filepath.Join(workDir, "embedcfg")
-	if err := ioutil.WriteFile(embedcfgName, embedcfgData, 0o666); err != nil {
+	if err := os.WriteFile(embedcfgName, embedcfgData, 0o666); err != nil {
 		return "", err
 	}
 	return embedcfgName, nil

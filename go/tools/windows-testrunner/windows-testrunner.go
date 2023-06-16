@@ -33,7 +33,7 @@ func main() {
 }
 
 func run(configPath string, args []string) error {
-	configData, err := ioutil.ReadFile(configPath)
+	configData, err := os.ReadFile(configPath)
 	if err != nil {
 		return err
 	}

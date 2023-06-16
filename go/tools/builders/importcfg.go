@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,7 +38,7 @@ type archive struct {
 // for standard library packages.
 func checkImports(files []fileInfo, archives []archive, stdPackageListPath string, importPath string, recompileInternalDeps []string) (map[string]*archive, error) {
 	// Read the standard package list.
-	packagesTxt, err := ioutil.ReadFile(stdPackageListPath)
+	packagesTxt, err := os.ReadFile(stdPackageListPath)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +136,7 @@ func buildImportcfgFileForCompile(imports map[string]*archive, installSuffix, di
 		}
 	}
 
-	f, err := ioutil.TempFile(dir, "importcfg")
+	f, err := os.CreateTemp(dir, "importcfg")
 	if err != nil {
 		return "", err
 	}
@@ -185,7 +184,7 @@ func buildImportcfgFileForLink(archives []archive, stdPackageListPath, installSu
 		depsSeen[arc.packagePath] = arc.label
 		fmt.Fprintf(buf, "packagefile %s=%s\n", arc.packagePath, arc.file)
 	}
-	f, err := ioutil.TempFile(dir, "importcfg")
+	f, err := os.CreateTemp(dir, "importcfg")
 	if err != nil {
 		return "", err
 	}

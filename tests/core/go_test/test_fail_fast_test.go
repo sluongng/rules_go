@@ -60,7 +60,7 @@ func Test(t *testing.T) {
 	}
 
 	logPath := filepath.FromSlash("bazel-testlogs/fail_fast_test/test.log")
-	logData, err := ioutil.ReadFile(logPath)
+	logData, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatal(err)
 	}

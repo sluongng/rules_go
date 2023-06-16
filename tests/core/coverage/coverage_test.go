@@ -194,7 +194,7 @@ func testCoverage(t *testing.T, expectedCoverMode string, extraArgs ...string) {
 	}
 
 	coveragePath := filepath.FromSlash("bazel-testlogs/a_test/coverage.dat")
-	coverageData, err := ioutil.ReadFile(coveragePath)
+	coverageData, err := os.ReadFile(coveragePath)
 	if err != nil {
 		t.Fatal(err)
 	}

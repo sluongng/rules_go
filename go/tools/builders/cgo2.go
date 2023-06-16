@@ -23,7 +23,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -222,7 +222,7 @@ func cgo2(goenv *env, goSrcs, cgoSrcs, cSrcs, cxxSrcs, objcSrcs, objcxxSrcs, sSr
 		// the failure of the original command.
 		if err2 := goenv.runCommandToFile(
 			os.Stdout,
-			ioutil.Discard,
+			io.Discard,
 			append(args, allowUnresolvedSymbolsLdFlag),
 		); err2 != nil {
 			os.Stderr.Write(relativizePaths(originalErrBuf.Bytes()))

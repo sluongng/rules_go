@@ -42,7 +42,7 @@ func TestJSON2XML(t *testing.T) {
 			}
 
 			target := strings.TrimSuffix(file, ".json") + ".xml"
-			want, err := ioutil.ReadFile(target)
+			want, err := os.ReadFile(target)
 			if err != nil {
 				t.Fatal(err)
 			}

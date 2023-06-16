@@ -26,7 +26,7 @@ func Test(t *testing.T) {
 		t.Skipf("test only applicable with a runfiles directory")
 	}
 
-	tmpLog, err := ioutil.TempFile("", "tmp.xml")
+	tmpLog, err := os.CreateTemp("", "tmp.xml")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -307,7 +306,7 @@ func appendFiles(goenv *env, archive string, files []string) error {
 		return err
 	}
 	if os.IsNotExist(err) {
-		if err := ioutil.WriteFile(archive, []byte(arHeader), 0666); err != nil {
+		if err := os.WriteFile(archive, []byte(arHeader), 0666); err != nil {
 			return err
 		}
 	}

@@ -29,7 +29,7 @@ func makeAndEnterTempdir() (func(), error) {
 		return nil, fmt.Errorf("cannot get path to current directory: %v", err)
 	}
 
-	tempDir, err := ioutil.TempDir("", "test")
+	tempDir, err := os.MkdirTemp("", "test")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary directory: %v", err)
 	}
@@ -62,7 +62,7 @@ func createPaths(paths []string) error {
 				path = path[0 : len(path)-1]
 				mode |= 0111
 			}
-			if err := ioutil.WriteFile(path, []byte{}, mode); err != nil {
+			if err := os.WriteFile(path, []byte{}, mode); err != nil {
 				return fmt.Errorf("failed to create file %s with mode %v: %v", path, mode, err)
 			}
 		}
@@ -133,7 +133,7 @@ func TestPythonManifest(t *testing.T) {
 	}
 	defer cleanup()
 
-	err = ioutil.WriteFile("MANIFEST",
+	err = os.WriteFile("MANIFEST",
 		// all on one line to make sure the whitespace stays exactly as in the source file
 		[]byte("__init__.py \n__main__/external/__init__.py \n__main__/external/rules_python/__init__.py \n__main__/external/rules_python/python/__init__.py \n__main__/external/rules_python/python/runfiles/__init__.py \n__main__/external/rules_python/python/runfiles/runfiles.py C:/users/sam/_bazel_sam/pj4cl7d4/external/rules_python/python/runfiles/runfiles.py\n__main__/go_cat_/go_cat.exe C:/users/sam/_bazel_sam/pj4cl7d4/execroot/__main__/bazel-out/x64_windows-opt-exec-2B5CBBC6/bin/go_cat_/go_cat.exe\n__main__/important.txt C:/users/sam/dev/rules_go_runfiles_repro/important.txt\n__main__/parent.exe C:/users/sam/_bazel_sam/pj4cl7d4/execroot/__main__/bazel-out/x64_windows-opt-exec-2B5CBBC6/bin/parent.exe\n__main__/parent.py C:/users/sam/dev/rules_go_runfiles_repro/parent.py\n__main__/parent.zip C:/users/sam/_bazel_sam/pj4cl7d4/execroot/__main__/bazel-out/x64_windows-opt-exec-2B5CBBC6/bin/parent.zip\nrules_python/__init__.py \nrules_python/python/__init__.py \nrules_python/python/runfiles/__init__.py \nrules_python/python/runfiles/runfiles.py C:/users/sam/_bazel_sam/pj4cl7d4/external/rules_python/python/runfiles/runfiles.py"),
 		os.FileMode(0644),

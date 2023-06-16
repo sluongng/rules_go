@@ -42,7 +42,7 @@ func run(dir string, files []string) error {
 			if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(path, nil, 0666); err != nil {
+			if err := os.WriteFile(path, nil, 0666); err != nil {
 				return err
 			}
 		}

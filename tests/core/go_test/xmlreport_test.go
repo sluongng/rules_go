@@ -145,7 +145,7 @@ func Test(t *testing.T) {
 				t.Fatal("could not find testlog root: %s", err)
 			}
 			path := filepath.Join(strings.TrimSpace(string(p)), "xml_test/test.xml")
-			b, err := ioutil.ReadFile(path)
+			b, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("could not read generated xml file: %s", err)
 			}

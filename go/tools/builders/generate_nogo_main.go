@@ -22,7 +22,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"regexp"
@@ -157,7 +156,7 @@ func buildConfig(path string) (Configs, error) {
 	if path == "" {
 		return Configs{}, nil
 	}
-	b, err := ioutil.ReadFile(path)
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return Configs{}, fmt.Errorf("failed to read config file: %v", err)
 	}

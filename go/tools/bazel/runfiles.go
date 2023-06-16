@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -344,7 +343,7 @@ func initRunfiles() {
 		// Windows doesn't support symbolic links by default. Instead, runfile
 		// locations are written to a manifest file.
 		runfiles.index = newIndex()
-		data, err := ioutil.ReadFile(manifest)
+		data, err := os.ReadFile(manifest)
 		if err != nil {
 			runfiles.err = err
 			return
@@ -427,7 +426,7 @@ func initRunfiles() {
 	}
 
 	if runfiles.dir != "" {
-		fis, err := ioutil.ReadDir(runfiles.dir)
+		fis, err := os.ReadDir(runfiles.dir)
 		if err != nil {
 			runfiles.err = fmt.Errorf("could not open runfiles directory: %v", err)
 			return

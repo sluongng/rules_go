@@ -27,7 +27,7 @@ const TEST_WORKSPACE = "TEST_WORKSPACE"
 
 // NewTmpDir creates a new temporary directory in TestTmpDir().
 func NewTmpDir(prefix string) (string, error) {
-	return ioutil.TempDir(TestTmpDir(), prefix)
+	return os.MkdirTemp(TestTmpDir(), prefix)
 }
 
 // TestTmpDir returns the path the Bazel test temp directory.

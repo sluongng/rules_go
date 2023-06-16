@@ -501,10 +501,10 @@ func Test(t *testing.T) {
 }
 
 func replaceInFile(path, old, new string) error {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
 	data = bytes.ReplaceAll(data, []byte(old), []byte(new))
-	return ioutil.WriteFile(path, data, 0666)
+	return os.WriteFile(path, data, 0666)
 }

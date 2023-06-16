@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"go/parser"
 	"go/token"
-	"io/ioutil"
 	"os"
 	"strconv"
 )
@@ -103,7 +102,7 @@ func init() {
 		%[3]s.NumStmt[:])
 }
 `, coverdataName, srcName, varName)
-	if err := ioutil.WriteFile(coverSrcFilename, buf.Bytes(), 0666); err != nil {
+	if err := os.WriteFile(coverSrcFilename, buf.Bytes(), 0666); err != nil {
 		return fmt.Errorf("registerCoverage: %v", err)
 	}
 	return nil

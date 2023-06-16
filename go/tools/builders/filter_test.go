@@ -17,7 +17,6 @@ package main
 
 import (
 	"go/build"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -70,7 +69,7 @@ package tags
 }
 
 func TestTags(t *testing.T) {
-	tempdir, err := ioutil.TempDir("", "goruletest")
+	tempdir, err := os.MkdirTemp("", "goruletest")
 	if err != nil {
 		t.Fatalf("Error creating temporary directory: %v", err)
 	}
@@ -79,7 +78,7 @@ func TestTags(t *testing.T) {
 	input := []string{}
 	for k, v := range testfiles {
 		p := filepath.Join(tempdir, k)
-		if err := ioutil.WriteFile(p, []byte(v), 0644); err != nil {
+		if err := os.WriteFile(p, []byte(v), 0644); err != nil {
 			t.Fatalf("WriteFile(%s): %v", p, err)
 		}
 		input = append(input, k)

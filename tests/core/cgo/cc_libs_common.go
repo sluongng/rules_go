@@ -16,7 +16,7 @@ func verifyNoCachePaths(t *testing.T, shortPath string) {
 	if err != nil {
 		t.Error(err)
 	}
-	binBytes, err := ioutil.ReadFile(binPath)
+	binBytes, err := os.ReadFile(binPath)
 	if err != nil {
 		t.Error(err)
 	}

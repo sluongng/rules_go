@@ -20,7 +20,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -64,7 +63,7 @@ func run(args []string) error {
 
 	// Output to a temporary folder and then move the contents into place below.
 	// This is to work around long file paths on Windows.
-	tmpDir, err := ioutil.TempDir("", "go_proto")
+	tmpDir, err := os.CreateTemp("", "go_proto")
 	if err != nil {
 		return err
 	}
@@ -92,7 +91,7 @@ func run(args []string) error {
 
 	var cmd *exec.Cmd
 	if useParamFile {
-		paramFile, err := ioutil.TempFile(tmpDir, "protoc-*.params")
+		paramFile, err := os.CreateTemp(tmpDir, "protoc-*.params")
 		if err != nil {
 			return fmt.Errorf("error creating param file for protoc: %v", err)
 		}
@@ -187,17 +186,17 @@ func run(args []string) error {
 			// have relevant definitions (e.g., services for grpc_gateway). Create
 			// trivial files that the compiler will ignore for missing outputs.
 			data := []byte("// +build ignore\n\npackage ignore")
-			if err := ioutil.WriteFile(abs(f.path), data, 0644); err != nil {
+			if err := os.WriteFile(abs(f.path), data, 0644); err != nil {
 				return err
 			}
 		case f.expected && f.ambiguious:
 			fmt.Fprintf(buf, "Ambiguious output %v.\n", f.path)
 		case f.from != nil:
-			data, err := ioutil.ReadFile(f.from.path)
+			data, err := os.ReadFile(f.from.path)
 			if err != nil {
 				return err
 			}
-			if err := ioutil.WriteFile(abs(f.path), data, 0644); err != nil {
+			if err := os.WriteFile(abs(f.path), data, 0644); err != nil {
 				return err
 			}
 		case !f.expected:
