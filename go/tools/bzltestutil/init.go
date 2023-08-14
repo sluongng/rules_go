@@ -32,10 +32,7 @@ var (
 
 // Before Go 1.21, this initializer runs before any user's package.
 //
-// Since Go 1.21, the order of `init()` calls is determined based
-// on how Go runtime sort the package names. So it's not guaranteed
-// that this initializer runs before any user package's initializer.
-//
+// Since Go 1.21, the order of this initializer calls is not guarenteed to be first.
 // See https://go.dev/doc/go1.21#language for more details.
 func init() {
 	var err error
