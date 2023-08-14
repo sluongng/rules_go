@@ -34,7 +34,7 @@ var (
 //
 // Since Go 1.21, the order of `init()` calls is determined based
 // on how Go runtime sort the package names. So it's not guaranteed
-// that this initializer runs before any user packages' initializer.
+// that this initializer runs before any user package's initializer.
 func init() {
 	var err error
 	testExecDir, err = os.Getwd()
