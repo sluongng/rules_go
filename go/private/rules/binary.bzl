@@ -36,6 +36,10 @@ load(
     "go_transition",
 )
 load(
+    "//go/private/rules:execgroup.bzl",
+    "RULES_GO_EXEC_GROUPS",
+)
+load(
     "//go/private:mode.bzl",
     "LINKMODES",
     "LINKMODES_EXECUTABLE",
@@ -414,6 +418,7 @@ _go_binary_kwargs = {
             default = "@bazel_tools//tools/allowlists/function_transition_allowlist",
         ),
     },
+    "exec_groups": RULES_GO_EXEC_GROUPS,
     "toolchains": [GO_TOOLCHAIN],
     "doc": """This builds an executable from a set of source files,
     which must all be in the `main` package. You can run the binary with

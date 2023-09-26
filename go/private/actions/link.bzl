@@ -33,6 +33,10 @@ load(
     "@bazel_skylib//lib:collections.bzl",
     "collections",
 )
+load(
+    "//go/private/rules:execgroup.bzl",
+    "LINK_EXEC_GROUP",
+)
 
 def _format_archive(d):
     return "{}={}={}".format(d.label, d.importmap, d.file.path)
@@ -206,6 +210,7 @@ def emit_link(
         inputs = inputs,
         outputs = [executable],
         mnemonic = "GoLink",
+        exec_group = LINK_EXEC_GROUP,
         executable = go.toolchain._builder,
         arguments = [builder_args, "--", tool_args],
         env = go.env,
