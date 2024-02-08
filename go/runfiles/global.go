@@ -28,12 +28,49 @@ func Rlocation(path string) (string, error) {
 	return RlocationFrom(path, CallerRepository())
 }
 
+// Rlocations returns the absolute paths name of a set of runfiles.
+// The input "paths" is expected to be a list of runfile names that match the
+// criterias documented in runfiles.Rlocation(), separated by a single white-space
+// character.
+// Usually this input value could be generated from Bazel's
+//
+//	$(rlocationpaths <target-label)
+//
+// function call in BUILD files.
+//
+// Example:
+//
+//	paths := "my_repo/files/a my_repo/files/b"
+//	locations, _ := runfiles.Rlocations(paths)
+//
+// will result in `locations` being
+//
+//	map[string]string{
+//	  "my_repo/files/a": "<some-path-on-disk>/files/a"
+//	  "my_repo/files/b": "<some-path-on-disk>/files/b"
+//	}
+//
+// For more information, see
+//
+//	https://bazel.build/reference/be/make-variables#predefined_label_variables
+func Rlocations(paths string) (map[string]string, error) {
+	return RlocationsFrom(paths, CallerRepository())
+}
+
 func RlocationFrom(path string, sourceRepo string) (string, error) {
 	r, err := g.get()
 	if err != nil {
 		return "", err
 	}
 	return r.WithSourceRepo(sourceRepo).Rlocation(path)
+}
+
+func RlocationsFrom(paths string, sourceRepo string) (map[string]string, error) {
+	r, err := g.get()
+	if err != nil {
+		return map[string]string{}, err
+	}
+	return r.WithSourceRepo(sourceRepo).Rlocations(paths)
 }
 
 // Env returns additional environmental variables to pass to subprocesses.

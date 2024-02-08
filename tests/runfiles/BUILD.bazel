@@ -32,6 +32,11 @@ go_test(
 )
 
 go_bazel_test(
+    name = "rlocations_bazel_test",
+    srcs = ["rlocations_bazel_test.go"],
+)
+
+go_bazel_test(
     name = "runfiles_bazel_test",
     srcs = ["runfiles_bazel_test.go"],
 )

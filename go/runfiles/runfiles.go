@@ -164,6 +164,26 @@ func (r *Runfiles) Rlocation(path string) (string, error) {
 	return p, nil
 }
 
+// Rlocations wraps over the Rlocation call to accomodate for lookup paths
+// that were generated from `rlocationpaths` (plural).
+func (r *Runfiles) Rlocations(paths string) (map[string]string, error) {
+	pSlice := strings.Split(paths, " ")
+	if len(pSlice) == 0 {
+		return map[string]string{}, fmt.Errorf("runfiles: paths must not be empty: %s", paths)
+	}
+
+	res := make(map[string]string, len(pSlice))
+	for _, p := range strings.Split(paths, " ") {
+		location, err := r.Rlocation(p)
+		if err != nil {
+			return res, Error{p, err}
+		}
+		res[p] = location
+	}
+
+	return res, nil
+}
+
 func isNormalizedPath(s string) error {
 	if strings.HasPrefix(s, "../") || strings.Contains(s, "/../") || strings.HasSuffix(s, "/..") {
 		return fmt.Errorf(`runfiles: path %q must not contain ".." segments`, s)
