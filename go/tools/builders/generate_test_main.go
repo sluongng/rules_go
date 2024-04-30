@@ -252,7 +252,7 @@ func main() {
 		// in tests.
 		//
 		// signal.Notify is used to ensure that there is a no-op signal handler registered.
-		// Avoid using signal.Ignore here: despite the name, it's only used to unregistered handler(s) that
+		// Avoid using signal.Ignore here: despite the name, it's only used to unregister handlers that
 		// were previously registered by signal.Notify. See (2) for more information.
 		//
 		// (1): https://github.com/golang/go/blob/e816eb50140841c524fd07ecb4eaa078954eb47c/src/testing/testing.go#L2351
