@@ -42,6 +42,7 @@ load(
     "//go/private:providers.bzl",
     "GoArchive",
     "GoInfo",
+    "GoSharedLibraryInfo",
     "INFERRED_PATH",
 )
 load(
@@ -53,6 +54,9 @@ load(
     "go_transition",
     "non_go_transition",
 )
+
+def _collect_shared_libs(shared_deps):
+    return [dep[GoSharedLibraryInfo] for dep in shared_deps if GoSharedLibraryInfo in dep]
 
 def _go_test_impl(ctx):
     """go_test_impl implements go testing.
@@ -171,6 +175,7 @@ def _go_test_impl(ctx):
     test_deps = external_archive.direct + [external_archive] + ctx.attr._testmain_additional_deps
     if go.coverage_enabled:
         test_deps.append(go.coverdata)
+    shared_libs = _collect_shared_libs(ctx.attr.shared_deps)
     test_go_info = new_go_info(
         go,
         struct(
@@ -189,6 +194,7 @@ def _go_test_impl(ctx):
         source = test_go_info,
         test_archives = [internal_archive.data],
         gc_linkopts = test_gc_linkopts,
+        shlibs = shared_libs,
         version_file = ctx.version_file,
         info_file = ctx.info_file,
     )
@@ -263,6 +269,13 @@ _go_test_kwargs = {
             providers = [GoInfo],
             doc = """List of Go libraries this test imports directly.
             These may be go_library rules or compatible rules with the [GoInfo] provider.
+            """,
+        ),
+        "shared_deps": attr.label_list(
+            providers = [GoSharedLibraryInfo],
+            doc = """List of Go shared libraries to link dynamically when `linkshared` is enabled.
+            These should be `go_shared_library` rules or compatible rules that provide
+            [GoSharedLibraryInfo]. These do not affect compilation.
             """,
         ),
         "embed": attr.label_list(
@@ -347,6 +360,7 @@ _go_test_kwargs = {
             <ul>
             <li>`auto` (default): Controlled by `//go/config:linkmode`, which defaults to `pie` on supported platforms and `normal` elsewhere.</li>
             <li>`normal`: Builds a normal executable with position-dependent code.</li>
+            <li>`shared`: Builds a shared library that can be linked into Go binaries with `linkshared`.</li>
             <li>`pie`: Builds a position-independent executable.</li>
             <li>`plugin`: Builds a shared library that can be loaded as a Go plugin. Only supported on platforms that support plugins.</li>
             <li>`c-shared`: Builds a shared library that can be linked into a C program.</li>
@@ -431,6 +445,13 @@ _go_test_kwargs = {
             disabled. In most cases, it's better to control this on the command line with
             `--@io_bazel_rules_go//go/config:msan`. See [mode attributes], specifically
             [msan].
+            """,
+        ),
+        "linkshared": attr.string(
+            default = "auto",
+            doc = """Controls whether test binaries are linked against Go shared libraries (like `-linkshared`).
+            May be one of `on`, `off`, or `auto`. If `auto`, this is controlled by
+            `--@io_bazel_rules_go//go/config:linkshared`.
             """,
         ),
         "gotags": attr.string_list(

@@ -154,7 +154,7 @@ func buildImportcfgFileForCompile(imports map[string]*archive, installSuffix, di
 	return filename, nil
 }
 
-func buildImportcfgFileForLink(archives []archive, stdPackageListPath, installSuffix, dir string) (string, error) {
+func buildImportcfgFileForLink(archives []archive, stdPackageListPath, installSuffix, dir string, shlibs map[string]string) (string, error) {
 	buf := &bytes.Buffer{}
 	goroot, ok := os.LookupEnv("GOROOT")
 	if !ok {
@@ -195,6 +195,16 @@ package with this path is linked.`,
 		// `compilepkg.bzl` but `_format_archive` in `link.bzl` formats differently.
 		depsSeen[arc.packagePath] = arc.importPath
 		fmt.Fprintf(buf, "packagefile %s=%s\n", arc.packagePath, arc.file)
+	}
+	if len(shlibs) > 0 {
+		sortedPkgs := make([]string, 0, len(shlibs))
+		for imp := range shlibs {
+			sortedPkgs = append(sortedPkgs, imp)
+		}
+		sort.Strings(sortedPkgs)
+		for _, imp := range sortedPkgs {
+			fmt.Fprintf(buf, "packageshlib %s=%s\n", imp, shlibs[imp])
+		}
 	}
 	f, err := ioutil.TempFile(dir, "importcfg")
 	if err != nil {

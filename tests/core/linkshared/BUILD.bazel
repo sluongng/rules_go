@@ -1,0 +1,17 @@
+load("//go:def.bzl", "go_shared_library", "go_test")
+
+go_shared_library(
+    name = "sharedlib_shared",
+    srcs = ["sharedlib.go"],
+    importpath = "github.com/bazelbuild/rules_go/tests/core/linkshared/sharedlib",
+    target_compatible_with = ["@platforms//os:linux"],
+)
+
+go_test(
+    name = "sharedlib_test",
+    srcs = ["sharedlib_test.go"],
+    linkshared = "on",
+    shared_deps = [":sharedlib_shared"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [":sharedlib_shared"],
+)

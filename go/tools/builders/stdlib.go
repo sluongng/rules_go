@@ -34,6 +34,7 @@ func stdlib(args []string) error {
 	msan := flags.Bool("msan", false, "Build in msan mode")
 	shared := flags.Bool("shared", false, "Build in shared mode")
 	dynlink := flags.Bool("dynlink", false, "Build in dynlink mode")
+	linkshared := flags.Bool("linkshared", false, "Build in linkshared mode")
 	pgoprofile := flags.String("pgoprofile", "", "Build with pgo using the given pprof file")
 	var packages multiFlag
 	flags.Var(&packages, "package", "Packages to build")
@@ -146,6 +147,11 @@ You may need to use the flags --cpu=x64_windows --compiler=mingw-gcc.`)
 		gcflags = append(gcflags, "-dynlink")
 		ldflags = append(ldflags, "-dynlink")
 		asmflags = append(asmflags, "-dynlink")
+	}
+	if *linkshared {
+		gcflags = append(gcflags, "-linkshared")
+		ldflags = append(ldflags, "-linkshared", "-w")
+		asmflags = append(asmflags, "-D=GOBUILDMODE_shared=1", "-linkshared")
 	}
 
 	// Since Go 1.10, an all= prefix indicates the flags should apply to the package

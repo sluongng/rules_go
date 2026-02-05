@@ -158,10 +158,17 @@ def emit_compilepkg(
     gc_flags.extend(go.toolchain.flags.compile)
     if link_mode_flag:
         gc_flags.append(link_mode_flag)
+    if go.mode.linkshared:
+        gc_flags.append("-linkshared")
     compile_args.add("-gcflags", quote_opts(gc_flags))
 
+    asm_flags = []
     if link_mode_flag:
-        compile_args.add("-asmflags", link_mode_flag)
+        asm_flags.append(link_mode_flag)
+    if go.mode.linkshared:
+        asm_flags.extend(["-D=GOBUILDMODE_shared=1", "-linkshared"])
+    if asm_flags:
+        compile_args.add("-asmflags", quote_opts(asm_flags))
 
     # cgo and the linker action don't support path mapping yet
     # TODO: Remove the second condition after https://github.com/bazelbuild/bazel/pull/21921.

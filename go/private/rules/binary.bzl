@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("@bazel_skylib//lib:structs.bzl", "structs")
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
 load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
@@ -22,6 +23,8 @@ load(
     "asm_exts",
     "cgo_exts",
     "go_exts",
+    "goos_to_shared_extension",
+    "has_shared_lib_extension",
     "syso_exts",
 )
 load(
@@ -44,8 +47,10 @@ load(
 load(
     "//go/private:providers.bzl",
     "GoArchive",
+    "GoConfigInfo",
     "GoInfo",
     "GoSDK",
+    "GoSharedLibraryInfo",
 )
 load(
     "//go/private/rules:transition.bzl",
@@ -54,6 +59,20 @@ load(
 )
 
 _EMPTY_DEPSET = depset([])
+
+def _collect_shared_libs(shared_deps):
+    return [dep[GoSharedLibraryInfo] for dep in shared_deps if GoSharedLibraryInfo in dep]
+
+def _go_with_mode(go, linkmode = None, linkshared = None):
+    mode_kwargs = structs.to_dict(go.mode)
+    if linkmode != None:
+        mode_kwargs["linkmode"] = linkmode
+    if linkshared != None:
+        mode_kwargs["linkshared"] = linkshared
+    mode = GoConfigInfo(**mode_kwargs)
+    go_kwargs = structs.to_dict(go)
+    go_kwargs["mode"] = mode
+    return struct(**go_kwargs)
 
 def _include_path(hdr):
     if not hdr.root.path:
@@ -136,6 +155,7 @@ def _go_binary_impl(ctx):
 
     generated_srcs = []
     deps = ctx.attr.deps
+    shared_libs = _collect_shared_libs(ctx.attr.shared_deps)
 
     if go.coverage_enabled:
         coverage_shim = ctx.actions.declare_file(ctx.attr.name + "_coverage_shim.go")
@@ -171,6 +191,7 @@ def _go_binary_impl(ctx):
         gc_linkopts = gc_linkopts(ctx),
         version_file = ctx.version_file,
         info_file = ctx.info_file,
+        shlibs = shared_libs,
         executable = executable,
     )
     validation_output = archive.data._validation_output
@@ -185,6 +206,15 @@ def _go_binary_impl(ctx):
             _validation = [validation_output] if validation_output else [],
         ),
     ]
+
+    if go.mode.linkmode == LINKMODE_SHARED:
+        importpaths = [archive.data.importpath]
+        importpaths.extend(archive.data.importpath_aliases)
+        importpaths.append("runtime/cgo")
+        providers.append(GoSharedLibraryInfo(
+            importpaths = importpaths,
+            shared_library = executable,
+        ))
 
     if go.mode.linkmode in LINKMODES_EXECUTABLE:
         env = {}
@@ -251,6 +281,106 @@ def _go_binary_impl(ctx):
 
     return providers
 
+def _go_shared_library_impl(ctx):
+    """go_shared_library_impl emits actions for compiling and linking a Go shared library."""
+    go = go_context(
+        ctx,
+        include_deprecated_properties = False,
+        importpath = ctx.attr.importpath,
+        embed = ctx.attr.embed,
+        go_context_data = ctx.attr._go_context_data,
+        goos = ctx.attr.goos,
+        goarch = ctx.attr.goarch,
+    )
+    link_go = _go_with_mode(go, linkmode = LINKMODE_SHARED, linkshared = False)
+
+    generated_srcs = []
+    deps = ctx.attr.deps
+    shared_libs = _collect_shared_libs(ctx.attr.shared_deps)
+
+    if go.coverage_enabled:
+        coverage_shim = ctx.actions.declare_file(ctx.attr.name + "_coverage_shim.go")
+        ctx.actions.symlink(
+            output = coverage_shim,
+            target_file = ctx.file._coverage_shim,
+        )
+        generated_srcs.append(coverage_shim)
+        deps = list(deps) + [ctx.attr._bincov]
+
+    go_info = new_go_info(
+        go,
+        ctx.attr,
+        generated_srcs = generated_srcs,
+        deps = [dep[GoArchive] for dep in deps],
+        importable = True,
+        is_main = False,
+    )
+    name = ctx.attr.basename
+    if not name:
+        name = ctx.label.name
+    executable = None
+    if ctx.attr.out:
+        executable = ctx.actions.declare_file(ctx.attr.out)
+    archive = go.archive(go, go_info)
+    if not executable:
+        if link_go.mode.goos != "wasip1":
+            name = "lib" + name
+        extension = goos_to_shared_extension(link_go.mode.goos)
+        executable = go.declare_file(go, path = name, ext = extension)
+    link_go.link(
+        link_go,
+        archive = archive,
+        executable = executable,
+        gc_linkopts = gc_linkopts(ctx),
+        shlibs = shared_libs,
+        version_file = ctx.version_file,
+        info_file = ctx.info_file,
+    )
+    cgo_dynamic_deps = [
+        d
+        for d in archive.cgo_deps.to_list()
+        if has_shared_lib_extension(d.basename)
+    ]
+    shlib_files = [s.shared_library for s in shared_libs]
+    runfiles = ctx.runfiles(files = cgo_dynamic_deps + shlib_files).merge(archive.runfiles)
+    validation_output = archive.data._validation_output
+    nogo_diagnostics = archive.data._nogo_diagnostics
+
+    providers = [
+        go_info,
+        archive,
+        OutputGroupInfo(
+            cgo_exports = archive.cgo_exports,
+            compilation_outputs = [archive.data.file],
+            nogo_fix = [nogo_diagnostics] if nogo_diagnostics else [],
+            _validation = [validation_output] if validation_output else [],
+        ),
+        DefaultInfo(
+            files = depset([executable]),
+            default_runfiles = runfiles,
+            data_runfiles = runfiles.merge(ctx.runfiles([executable])),
+        ),
+    ]
+
+    importpaths = [archive.data.importpath]
+    importpaths.extend(archive.data.importpath_aliases)
+    importpaths.append("runtime/cgo")
+    providers.append(GoSharedLibraryInfo(
+        importpaths = importpaths,
+        shared_library = executable,
+    ))
+
+    providers.append(
+        coverage_common.instrumented_files_info(
+            ctx,
+            source_attributes = ["srcs"],
+            dependency_attributes = ["data", "deps", "embed", "embedsrcs"],
+            extensions = ["go"],
+        ),
+    )
+
+    return providers
+
 def _go_binary_kwargs(go_cc_aspects = []):
     return {
         "cfg": go_transition,
@@ -282,6 +412,13 @@ def _go_binary_kwargs(go_cc_aspects = []):
                 aspects = go_cc_aspects,
                 doc = """List of Go libraries this package imports directly.
                 These may be `go_library` rules or compatible rules with the [GoInfo] provider.
+                """,
+            ),
+            "shared_deps": attr.label_list(
+                providers = [GoSharedLibraryInfo],
+                doc = """List of Go shared libraries to link dynamically when `linkshared` is enabled.
+                These should be `go_shared_library` rules or compatible rules that provide
+                [GoSharedLibraryInfo]. These do not affect compilation.
                 """,
             ),
             "embed": attr.label_list(
@@ -427,6 +564,13 @@ def _go_binary_kwargs(go_cc_aspects = []):
                 [msan].
                 """,
             ),
+            "linkshared": attr.string(
+                default = "auto",
+                doc = """Controls whether binaries are linked against Go shared libraries (like `-linkshared`).
+                May be one of `on`, `off`, or `auto`. If `auto`, this is controlled by
+                `--@io_bazel_rules_go//go/config:linkshared`.
+                """,
+            ),
             "gotags": attr.string_list(
                 doc = """Enables a list of build tags when evaluating [build constraints]. Useful for
                 conditional compilation.
@@ -463,6 +607,7 @@ def _go_binary_kwargs(go_cc_aspects = []):
                 <ul>
                 <li>`auto` (default): Controlled by `//go/config:linkmode`, which defaults to `pie` on supported platforms and `normal` elsewhere.</li>
                 <li>`normal`: Builds a normal executable with position-dependent code.</li>
+                <li>`shared`: Builds a shared library that can be linked into Go binaries with `linkshared`.</li>
                 <li>`pie`: Builds a position-independent executable.</li>
                 <li>`plugin`: Builds a shared library that can be loaded as a Go plugin. Only supported on platforms that support plugins.</li>
                 <li>`c-shared`: Builds a shared library that can be linked into a C program.</li>
@@ -508,6 +653,31 @@ go_binary = rule(executable = True, **_go_binary_kwargs())
 go_non_executable_binary = rule(executable = False, **_go_binary_kwargs(
     go_cc_aspects = [_go_cc_aspect],
 ))
+
+def _go_shared_library_kwargs():
+    kwargs = _go_binary_kwargs()
+    kwargs["implementation"] = _go_shared_library_impl
+    attrs = dict(kwargs["attrs"])
+    attrs["linkshared"] = attr.string(
+        default = "on",
+        values = ["on"],
+        doc = "Fixed to \"on\" for go_shared_library.",
+    )
+    attrs["linkmode"] = attr.string(
+        default = "auto",
+        values = ["auto"],
+        doc = "Not configurable. go_shared_library always builds a shared library.",
+    )
+    kwargs["attrs"] = attrs
+    kwargs["doc"] = """Builds a Go shared library (buildmode=shared).
+
+This rule produces a shared library that can be linked into Go binaries or tests
+using `linkshared = "on"`. It also provides [GoInfo], [GoArchive], and
+[GoSharedLibraryInfo].
+"""
+    return kwargs
+
+go_shared_library = rule(executable = False, **_go_shared_library_kwargs())
 
 def _go_tool_binary_impl(ctx):
     # Keep in mind that the actions registered by this rule may not be

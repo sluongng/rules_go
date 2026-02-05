@@ -26,8 +26,10 @@ load(
     "//go/private:mode.bzl",
     "LINKMODE_NORMAL",
     "LINKMODE_PLUGIN",
+    "LINKMODE_SHARED",
     "extld_from_cc_toolchain",
     "extldflags_from_cc_toolchain",
+    "installsuffix",
 )
 load(
     "//go/private:rpath.bzl",
@@ -37,12 +39,16 @@ load(
 def _format_archive(d):
     return "{}={}={}".format(d.label, d.importmap, d.file.path)
 
+def _format_shlib(kv):
+    return "{}={}".format(kv[0], kv[1])
+
 def emit_link(
         go,
         archive = None,
         test_archives = [],
         executable = None,
         gc_linkopts = [],
+        shlibs = [],
         version_file = None,
         info_file = None):
     """See go/toolchains.rst#link for full documentation."""
@@ -73,16 +79,19 @@ def emit_link(
         tool_args.add("-race")
     if go.mode.msan:
         tool_args.add("-msan")
+    if go.mode.linkshared:
+        tool_args.add("-linkshared", "-w")
 
-    if go.mode.pure:
+    force_external = go.mode.linkmode == LINKMODE_SHARED
+    if go.mode.pure and not force_external:
         tool_args.add("-linkmode", "internal")
     else:
         extld = extld_from_cc_toolchain(go)
         tool_args.add_all(extld)
-        if extld and (go.mode.static or
-                      go.mode.race or
-                      go.mode.linkmode != LINKMODE_NORMAL or
-                      go.mode.goos == "windows" and go.mode.msan):
+        if force_external or (extld and (go.mode.static or
+                                         go.mode.race or
+                                         go.mode.linkmode != LINKMODE_NORMAL or
+                                         go.mode.goos == "windows" and go.mode.msan)):
             # Force external linking for the following conditions:
             # * Mode is static but not pure: -static must be passed to the C
             #   linker if the binary contains cgo code. See #2168, #2216.
@@ -126,6 +135,20 @@ def emit_link(
 
     builder_args.add_all(arcs, before_each = "-arc", map_each = _format_archive)
     builder_args.add("-package_list", go.sdk.package_list)
+    shlib_paths = {}
+    shlib_files = []
+    if shlibs:
+        for shlib in shlibs:
+            shlib_files.append(shlib.shared_library)
+            for imp in shlib.importpaths:
+                if imp in shlib_paths and shlib_paths[imp] != shlib.shared_library.path:
+                    fail("multiple shared libraries provided for importpath {}: {}, {}".format(
+                        imp,
+                        shlib_paths[imp],
+                        shlib.shared_library.path,
+                    ))
+                shlib_paths[imp] = shlib.shared_library.path
+        builder_args.add_all(sorted(shlib_paths.items()), before_each = "-shlib", map_each = _format_shlib)
 
     # Build a list of rpaths for dynamic libraries we need to find.
     # rpaths are relative paths from the binary to directories where libraries
@@ -139,6 +162,14 @@ def emit_link(
         for f in rpath.flags(go, d, executable = executable)
     ]))
     extldflags.extend(cgo_rpaths)
+    if shlibs:
+        shlib_rpaths = sorted(collections.uniq([
+            f
+            for d in shlib_files
+            if has_shared_lib_extension(d.basename)
+            for f in rpath.flags(go, d, executable = executable)
+        ]))
+        extldflags.extend(shlib_rpaths)
 
     # Process x_defs, and record whether stamping is used.
     stamp_x_defs_volatile = False
@@ -165,8 +196,13 @@ def emit_link(
         builder_args.add_all(stamp_inputs, before_each = "-stamp")
 
     builder_args.add("-o", executable)
-    builder_args.add("-main", archive.data.file)
-    builder_args.add("-p", archive.data.importmap)
+    if go.mode.linkmode == LINKMODE_SHARED:
+        builder_args.add("-sharedpkg", "{}={}".format(archive.data.importpath, archive.data.file.path))
+        runtime_cgo = go.stdlib.root_file.path + "/" + installsuffix(go.mode) + "/runtime/cgo.a"
+        builder_args.add("-sharedpkg", "runtime/cgo=" + runtime_cgo)
+    else:
+        builder_args.add("-main", archive.data.file)
+        builder_args.add("-p", archive.data.importmap)
     tool_args.add_all(gc_linkopts)
     tool_args.add_all(go.toolchain.flags.link)
 
@@ -177,6 +213,8 @@ def emit_link(
     tool_args.add_joined("-extldflags", extldflags, join_with = " ")
 
     inputs_direct = stamp_inputs + [go.sdk.package_list]
+    if shlibs:
+        inputs_direct.extend(shlib_files)
     if go.coverage_enabled and go.coverdata:
         inputs_direct.append(go.coverdata.data.file)
     inputs_transitive = [

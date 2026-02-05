@@ -465,6 +465,7 @@ default_go_config_info = GoConfigInfo(
     strip = False,
     debug = False,
     linkmode = LINKMODE_NORMAL,
+    linkshared = False,
     gc_linkopts = [],
     tags = [],
     stamp = False,
@@ -1024,6 +1025,7 @@ def _go_config_impl(ctx):
         strip = ctx.attr.strip,
         debug = ctx.attr.debug[BuildSettingInfo].value,
         linkmode = linkmode,
+        linkshared = ctx.attr.linkshared[BuildSettingInfo].value,
         gc_linkopts = ctx.attr.gc_linkopts[BuildSettingInfo].value,
         tags = tags,
         stamp = ctx.attr.stamp,
@@ -1063,6 +1065,10 @@ go_config = rule(
             providers = [BuildSettingInfo],
         ),
         "linkmode": attr.label(
+            mandatory = True,
+            providers = [BuildSettingInfo],
+        ),
+        "linkshared": attr.label(
             mandatory = True,
             providers = [BuildSettingInfo],
         ),

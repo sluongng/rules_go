@@ -24,6 +24,7 @@ load(
     "LINKMODE_C_ARCHIVE",
     "LINKMODE_C_SHARED",
     "LINKMODE_PLUGIN",
+    "LINKMODE_SHARED",
 )
 
 def emit_binary(
@@ -34,7 +35,8 @@ def emit_binary(
         gc_linkopts = [],
         version_file = None,
         info_file = None,
-        executable = None):
+        executable = None,
+        shlibs = []):
     """See go/toolchains.rst#binary for full documentation."""
 
     if name == "" and executable == None:
@@ -42,7 +44,7 @@ def emit_binary(
 
     archive = go.archive(go, source)
     if not executable:
-        if go.mode.linkmode == LINKMODE_C_SHARED:
+        if go.mode.linkmode in (LINKMODE_C_SHARED, LINKMODE_SHARED):
             if go.mode.goos != "wasip1":
                 name = "lib" + name  # shared libraries need a "lib" prefix in their name
             extension = goos_to_shared_extension(go.mode.goos)
@@ -59,6 +61,7 @@ def emit_binary(
         test_archives = test_archives,
         executable = executable,
         gc_linkopts = gc_linkopts,
+        shlibs = shlibs,
         version_file = version_file,
         info_file = info_file,
     )
@@ -67,6 +70,7 @@ def emit_binary(
         for d in archive.cgo_deps.to_list()
         if has_shared_lib_extension(d.basename)
     ]
-    runfiles = go._ctx.runfiles(files = cgo_dynamic_deps).merge(archive.runfiles)
+    shlib_files = [s.shared_library for s in shlibs]
+    runfiles = go._ctx.runfiles(files = cgo_dynamic_deps + shlib_files).merge(archive.runfiles)
 
     return archive, executable, runfiles

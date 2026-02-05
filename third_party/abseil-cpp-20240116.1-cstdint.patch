@@ -1,0 +1,27 @@
+diff --git a/MODULE.bazel b/MODULE.bazel
+index f4469a2..a6e6112 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -16,7 +16,7 @@
+ 
+ module(
+     name = "abseil-cpp",
+-    version = "20240116.0",
++    version = "20240116.1",
+     compatibility_level = 1,
+ )
+
+diff --git a/absl/container/internal/container_memory.h b/absl/container/internal/container_memory.h
+index 16fd5df..5fd8246 100644
+--- a/absl/container/internal/container_memory.h
++++ b/absl/container/internal/container_memory.h
+@@ -17,8 +17,9 @@
+ #include <cassert>
+ #include <cstddef>
++#include <cstdint>
+ #include <cstring>
+ #include <memory>
+ #include <new>
+ #include <tuple>
+ #include <type_traits>
+ #include <utility>

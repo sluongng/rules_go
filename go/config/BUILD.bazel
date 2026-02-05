@@ -30,6 +30,12 @@ bool_flag(
 )
 
 bool_flag(
+    name = "linkshared",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
+
+bool_flag(
     name = "debug",
     build_setting_default = False,
     visibility = ["//visibility:public"],

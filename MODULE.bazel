@@ -14,6 +14,16 @@ bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf"
 bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "rules_cc", version = "0.1.5")
 
+# Patch abseil-cpp for GCC 15 compatibility (uintptr_t requires <cstdint>).
+archive_override(
+    module_name = "abseil-cpp",
+    urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240116.1/abseil-cpp-20240116.1.tar.gz"],
+    integrity = "sha256-PHQyBN94NmrS6vI21mMdg/a8ko0XBd0AALhy5Ttz3Go=",
+    strip_prefix = "abseil-cpp-20240116.1",
+    patches = ["//third_party:abseil-cpp-20240116.1-cstdint.patch"],
+    patch_strip = 1,
+)
+
 go_sdk = use_extension("//go:extensions.bzl", "go_sdk")
 
 # Don't depend on this repo by name, use toolchains instead.

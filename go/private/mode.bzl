@@ -26,13 +26,14 @@ LINKMODE_C_SHARED = "c-shared"
 
 LINKMODE_C_ARCHIVE = "c-archive"
 
-LINKMODES = [LINKMODE_NORMAL, LINKMODE_PLUGIN, LINKMODE_C_SHARED, LINKMODE_C_ARCHIVE, LINKMODE_PIE]
+LINKMODES = [LINKMODE_NORMAL, LINKMODE_SHARED, LINKMODE_PLUGIN, LINKMODE_C_SHARED, LINKMODE_C_ARCHIVE, LINKMODE_PIE]
 
 # All link modes that produce executables to be run with bazel run.
 LINKMODES_EXECUTABLE = [LINKMODE_NORMAL, LINKMODE_PIE]
 
 # All link modes that require external linking and thus a cgo context.
 LINKMODES_REQUIRING_EXTERNAL_LINKING = [
+    LINKMODE_SHARED,
     LINKMODE_PLUGIN,
     LINKMODE_C_ARCHIVE,
     LINKMODE_C_SHARED,
@@ -48,6 +49,8 @@ def mode_string(mode):
         result.append("msan")
     if mode.pure:
         result.append("pure")
+    if getattr(mode, "linkshared", False):
+        result.append("linkshared")
     if mode.debug:
         result.append("debug")
     if mode.strip:
@@ -116,6 +119,15 @@ _LINK_PLUGIN_PLATFORMS = {
     "ios/arm64": None,
 }
 
+_LINK_SHARED_PLATFORMS = {
+    "linux/386": None,
+    "linux/amd64": None,
+    "linux/arm": None,
+    "linux/arm64": None,
+    "linux/ppc64le": None,
+    "linux/s390x": None,
+}
+
 _LINK_PIE_PLATFORMS = {
     "linux/amd64": None,
     "linux/arm": None,
@@ -149,12 +161,18 @@ def link_mode_arg(mode):
     elif mode.linkmode == LINKMODE_C_SHARED:
         if mode.goos in _LINK_C_SHARED_GOOS:
             return "-shared"
+    elif mode.linkmode == LINKMODE_SHARED:
+        if _platform(mode) in _LINK_SHARED_PLATFORMS:
+            return "-dynlink"
     elif mode.linkmode == LINKMODE_PLUGIN:
         if _platform(mode) in _LINK_PLUGIN_PLATFORMS:
             return "-dynlink"
     elif mode.linkmode == LINKMODE_PIE:
         if _platform(mode) in _LINK_PIE_PLATFORMS:
             return "-shared"
+    elif getattr(mode, "linkshared", False):
+        if _platform(mode) in _LINK_SHARED_PLATFORMS:
+            return "-dynlink"
     return None
 
 def extldflags_from_cc_toolchain(go):

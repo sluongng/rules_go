@@ -61,6 +61,14 @@ GoContextInfo = provider()
 
 CgoContextInfo = provider()
 
+GoSharedLibraryInfo = provider(
+    doc = "Information about a Go shared library for linkshared builds.",
+    fields = {
+        "importpaths": "List of import paths provided by the shared library.",
+        "shared_library": "The shared library file (.so/.dylib/.dll).",
+    },
+)
+
 EXPLICIT_PATH = "explicit"
 
 INFERRED_PATH = "inferred"

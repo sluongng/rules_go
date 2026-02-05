@@ -40,12 +40,16 @@ func link(args []string) error {
 	stamps := multiFlag{}
 	xdefs := multiFlag{}
 	archives := archiveMultiFlag{}
+	sharedPkgs := multiFlag{}
+	shlibs := multiFlag{}
 	flags := flag.NewFlagSet("link", flag.ExitOnError)
 	goenv := envFlags(flags)
 	main := flags.String("main", "", "Path to the main archive.")
 	packagePath := flags.String("p", "", "Package path of the main archive.")
 	outFile := flags.String("o", "", "Path to output file.")
 	flags.Var(&archives, "arc", "Label, package path, and file name of a dependency, separated by '='")
+	flags.Var(&sharedPkgs, "sharedpkg", "Import path and archive file for buildmode=shared, separated by '='")
+	flags.Var(&shlibs, "shlib", "Import path and shared library file, separated by '='")
 	packageList := flags.String("package_list", "", "The file containing the list of standard library packages")
 	buildmode := flags.String("buildmode", "", "Build mode used.")
 	flags.Var(&xdefs, "X", "A string variable to replace in the linked binary (repeated).")
@@ -65,7 +69,9 @@ func link(args []string) error {
 	if runtime.GOOS != "darwin" && runtime.GOOS != "ios" {
 		*outFile = abs(*outFile)
 	}
-	*main = abs(*main)
+	if *main != "" {
+		*main = abs(*main)
+	}
 
 	// If we were given any stamp value files, read and parse them
 	stampMap := map[string]string{}
@@ -91,7 +97,15 @@ func link(args []string) error {
 	}
 
 	// Build an importcfg file.
-	importcfgName, err := buildImportcfgFileForLink(archives, *packageList, goenv.installSuffix, filepath.Dir(*outFile))
+	shlibMap := map[string]string{}
+	for _, entry := range shlibs {
+		parts := strings.SplitN(entry, "=", 2)
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return fmt.Errorf("badly formed -shlib flag: %s", entry)
+		}
+		shlibMap[parts[0]] = abs(parts[1])
+	}
+	importcfgName, err := buildImportcfgFileForLink(archives, *packageList, goenv.installSuffix, filepath.Dir(*outFile), shlibMap)
 	if err != nil {
 		return err
 	}
@@ -156,7 +170,20 @@ func link(args []string) error {
 	defer linkerCleanup()
 	// add in the unprocess pass through options
 	goargs = append(goargs, toolArgs...)
-	goargs = append(goargs, *main)
+	if *buildmode == "shared" {
+		if len(sharedPkgs) == 0 {
+			return fmt.Errorf("buildmode=shared requires at least one -sharedpkg")
+		}
+		for _, entry := range sharedPkgs {
+			parts := strings.SplitN(entry, "=", 2)
+			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+				return fmt.Errorf("badly formed -sharedpkg flag: %s", entry)
+			}
+			goargs = append(goargs, parts[0]+"="+abs(parts[1]))
+		}
+	} else {
+		goargs = append(goargs, *main)
+	}
 
 	clearGoRoot, err := onVersion(23)
 	if err != nil {

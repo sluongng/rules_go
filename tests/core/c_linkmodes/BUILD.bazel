@@ -1,4 +1,4 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_test")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
@@ -60,6 +60,17 @@ cc_test(
     deps = select({
         "@io_bazel_rules_go//go/platform:windows": [],
         "//conditions:default": [":adder_shared"],
+    }),
+)
+
+go_test(
+    name = "c-shared_go_test",
+    srcs = ["c_shared_go_test.go"],
+    cgo = True,
+    cdeps = [":adder_shared"],
+    target_compatible_with = select({
+        "@platforms//os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
     }),
 )
 

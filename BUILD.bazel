@@ -132,6 +132,7 @@ go_config(
     gc_linkopts = "//go/config:gc_linkopts",
     gotags = "//go/config:tags",
     linkmode = "//go/config:linkmode",
+    linkshared = "//go/config:linkshared",
     msan = "//go/config:msan",
     pgoprofile = "//go/config:pgoprofile",
     pure = "//go/config:pure",

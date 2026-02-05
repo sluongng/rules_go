@@ -60,6 +60,7 @@ def _should_use_sdk_stdlib(go):
             not go.mode.race and  # TODO(jayconrod): use precompiled race
             not go.mode.msan and
             not go.mode.pure and
+            not go.mode.linkshared and
             not go.mode.gc_goopts and
             go.mode.linkmode in (LINKMODE_NORMAL, LINKMODE_PIE))
 
@@ -153,6 +154,8 @@ def _build_stdlib(go):
     link_mode_flag = link_mode_arg(go.mode)
     if link_mode_flag:
         args.add(link_mode_flag)
+    if go.mode.linkshared:
+        args.add("-linkshared")
 
     args.add("-gcflags", quote_opts(go.mode.gc_goopts))
 

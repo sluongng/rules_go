@@ -41,6 +41,7 @@ TRANSITIONED_GO_SETTING_KEYS = [
     "//go/config:race",
     "//go/config:pure",
     "//go/config:linkmode",
+    "//go/config:linkshared",
     "//go/config:tags",
     "//go/config:pgoprofile",
 ]
@@ -75,6 +76,7 @@ def _go_transition_impl(settings, attr):
     race = _set_ternary(settings, attr, "race")
     msan = _set_ternary(settings, attr, "msan")
     pure = _set_ternary(settings, attr, "pure")
+    _set_ternary(settings, attr, "linkshared")
     if race == "on":
         if pure == "on":
             fail('race = "on" cannot be set when pure = "on" is set. race requires cgo.')
@@ -203,6 +205,7 @@ _common_reset_transition_dict = dict({
     "//go/config:pure": False,
     "//go/config:debug": False,
     "//go/config:linkmode": LINKMODE_NORMAL,
+    "//go/config:linkshared": False,
     "//go/config:tags": [],
     "//go/config:pgoprofile": Label("//go/config:empty"),
 }, **{setting: "" for setting in _SETTING_KEY_TO_ORIGINAL_SETTING_KEY.values()})
@@ -218,6 +221,7 @@ _stdlib_keep_keys = sorted([
     "//go/config:race",
     "//go/config:pure",
     "//go/config:linkmode",
+    "//go/config:linkshared",
     "//go/config:tags",
     "//go/config:pgoprofile",
 ])

@@ -33,3 +33,9 @@ c-shared_dl_test
 Checks that a ``go_binary`` can be built in ``c-shared`` mode and loaded
 dynamically from a C/C++ binary. The binary depends on a package in
 ``org_golang_x_crypto`` with a fair amount of assembly code. Verifies `#2138`_.
+
+c-shared_go_test
+----------------
+
+Checks that a ``go_binary`` built in ``c-shared`` mode can be linked
+dynamically into a Go test via cgo.

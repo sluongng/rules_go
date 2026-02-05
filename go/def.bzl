@@ -42,6 +42,11 @@ load(
     _GoInfo = "GoInfo",
     _GoPath = "GoPath",
     _GoSDK = "GoSDK",
+    _GoSharedLibraryInfo = "GoSharedLibraryInfo",
+)
+load(
+    "//go/private/rules:binary.bzl",
+    _go_shared_library = "go_shared_library",
 )
 load(
     "//go/private/rules:cross.bzl",
@@ -173,11 +178,17 @@ GoArchiveData = _GoArchiveData
 # See go/providers.rst#GoSDK for full documentation.
 GoSDK = _GoSDK
 
+# See go/providers.rst for full documentation.
+GoSharedLibraryInfo = _GoSharedLibraryInfo
+
 # See docs/go/core/rules.md#go_library for full documentation.
 go_library = _go_library
 
 # See docs/go/core/rules.md#go_binary for full documentation.
 go_binary = _go_binary_macro
+
+# See docs/go/core/rules.md#go_shared_library for full documentation.
+go_shared_library = _go_shared_library
 
 # See docs/go/core/rules.md#go_test for full documentation.
 go_test = _go_test
