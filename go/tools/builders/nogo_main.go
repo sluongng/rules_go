@@ -90,9 +90,7 @@ func run(args []string) (error, int) {
 		return fmt.Errorf("error parsing importcfg: %v", err), nogoError
 	}
 
-	if *goVersion != "" && !strings.HasPrefix(*goVersion, "go") {
-		*goVersion = "go" + *goVersion
-	}
+	*goVersion = normalizeGoVersion(*goVersion)
 
 	diagnostics, pkg, err := checkPackage(analyzers, *packagePath, *goVersion, packageFile, importMap, factMap, *factsOnly, srcs, ignores)
 	if err != nil {

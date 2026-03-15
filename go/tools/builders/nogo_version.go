@@ -1,6 +1,3 @@
-//go:build !go1.18
-// +build !go1.18
-
 /* Copyright 2026 The Bazel Authors. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,12 +15,27 @@ limitations under the License.
 
 package main
 
-import "go/types"
+import "strings"
 
-func initGoVersionConfig(*types.Config, string) {}
-
-func normalizeGoVersionForTypes(goVersion string) string {
-	return goVersion
+func normalizeGoVersion(goVersion string) string {
+	if goVersion == "" {
+		return ""
+	}
+	if !strings.HasPrefix(goVersion, "go") {
+		goVersion = "go" + goVersion
+	}
+	return normalizeGoVersionForTypes(goVersion)
 }
 
-func initFileVersions(*types.Info) {}
+func trimGoPatchVersion(goVersion string) string {
+	prefix := ""
+	if strings.HasPrefix(goVersion, "go") {
+		prefix = "go"
+		goVersion = strings.TrimPrefix(goVersion, "go")
+	}
+	parts := strings.SplitN(goVersion, ".", 3)
+	if len(parts) < 3 {
+		return prefix + goVersion
+	}
+	return prefix + parts[0] + "." + parts[1]
+}

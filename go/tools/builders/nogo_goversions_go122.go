@@ -27,6 +27,10 @@ func initGoVersionConfig(config *types.Config, goVersion string) {
 	config.GoVersion = goVersion
 }
 
+func normalizeGoVersionForTypes(goVersion string) string {
+	return goVersion
+}
+
 func initFileVersions(info *types.Info) {
 	info.FileVersions = make(map[*ast.File]string)
 }

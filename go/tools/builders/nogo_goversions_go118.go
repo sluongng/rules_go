@@ -1,5 +1,5 @@
-//go:build go1.18 && !go1.22
-// +build go1.18,!go1.22
+//go:build go1.18 && !go1.21
+// +build go1.18,!go1.21
 
 /* Copyright 2026 The Bazel Authors. All rights reserved.
 
@@ -22,6 +22,11 @@ import "go/types"
 
 func initGoVersionConfig(config *types.Config, goVersion string) {
 	config.GoVersion = goVersion
+}
+
+// Go 1.18-go1.20 only accepts go1.N in types.Config.GoVersion.
+func normalizeGoVersionForTypes(goVersion string) string {
+	return trimGoPatchVersion(goVersion)
 }
 
 func initFileVersions(*types.Info) {}
