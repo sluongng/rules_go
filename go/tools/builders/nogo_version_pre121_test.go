@@ -6,7 +6,19 @@ package main
 import "testing"
 
 func TestNormalizeGoVersionPre121(t *testing.T) {
-	if got := normalizeGoVersion("1.20.14"); got != "go1.20" {
-		t.Fatalf("normalizeGoVersion(1.20.14) = %q, want %q", got, "go1.20")
+	testCases := []struct {
+		name      string
+		goVersion string
+		want      string
+	}{
+		{name: "patch release", goVersion: "1.20.14", want: "go1.20"},
+		{name: "rc prerelease", goVersion: "1.20rc1", want: "go1.20"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeGoVersion(tc.goVersion); got != tc.want {
+				t.Fatalf("normalizeGoVersion(%q) = %q, want %q", tc.goVersion, got, tc.want)
+			}
+		})
 	}
 }
