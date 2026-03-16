@@ -33,10 +33,11 @@ func trimGoPatchVersion(goVersion string) string {
 		prefix = "go"
 		goVersion = strings.TrimPrefix(goVersion, "go")
 	}
-	major, minor, ok := strings.Cut(goVersion, ".")
-	if !ok {
+	dot := strings.IndexByte(goVersion, '.')
+	if dot < 0 {
 		return prefix + goVersion
 	}
+	major, minor := goVersion[:dot], goVersion[dot+1:]
 	end := 0
 	for end < len(minor) && minor[end] >= '0' && minor[end] <= '9' {
 		end++
