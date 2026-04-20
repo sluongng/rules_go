@@ -180,14 +180,14 @@ func TestBuildInfoDepsSortAndDedup(t *testing.T) {
 }
 
 func TestModInfoDataRoundTrip(t *testing.T) {
-	info := parseModInfoData(t, modInfoData([]moduleInfo{
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", []moduleInfo{
 		{path: "golang.org/x/sync", version: "v0.8.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 	}))
 
-	if info.Path != "" {
-		t.Fatalf("got Path %q; want empty", info.Path)
+	if info.Path != "example.com/cmd/tool" {
+		t.Fatalf("got Path %q; want %q", info.Path, "example.com/cmd/tool")
 	}
 	if info.Main.Path != "" || info.Main.Version != "" {
 		t.Fatalf("got Main %+v; want empty", info.Main)
@@ -207,23 +207,37 @@ func TestModInfoDataRoundTrip(t *testing.T) {
 }
 
 func TestModInfoDataWithoutDeps(t *testing.T) {
-	info := parseModInfoData(t, modInfoData(nil))
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", nil))
+	if info.Path != "example.com/cmd/tool" {
+		t.Fatalf("got Path %q; want %q", info.Path, "example.com/cmd/tool")
+	}
 	if len(info.Deps) != 0 {
 		t.Fatalf("got %d deps; want 0", len(info.Deps))
 	}
 }
 
 func TestModInfoDataFormat(t *testing.T) {
-	got := modInfoData([]moduleInfo{
+	got := modInfoData("example.com/cmd/tool", []moduleInfo{
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "golang.org/x/sync", version: "v0.8.0"},
 	})
 	want := buildInfoStart +
+		"path\texample.com/cmd/tool\n" +
 		"dep\tgithub.com/google/go-cmp\tv0.6.0\t\n" +
 		"dep\tgolang.org/x/sync\tv0.8.0\t\n" +
 		buildInfoEnd
 	if got != want {
 		t.Fatalf("got %q; want %q", got, want)
+	}
+}
+
+func TestModInfoDataWithoutPathOrDeps(t *testing.T) {
+	info := parseModInfoData(t, modInfoData("", nil))
+	if info.Path != "" {
+		t.Fatalf("got Path %q; want empty", info.Path)
+	}
+	if len(info.Deps) != 0 {
+		t.Fatalf("got %d deps; want 0", len(info.Deps))
 	}
 }
 

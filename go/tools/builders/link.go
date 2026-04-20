@@ -43,6 +43,7 @@ func link(args []string) error {
 	flags := flag.NewFlagSet("link", flag.ExitOnError)
 	goenv := envFlags(flags)
 	main := flags.String("main", "", "Path to the main archive.")
+	mainPackagePath := flags.String("main_package_path", "", "Import path of the main package.")
 	packagePath := flags.String("p", "", "Package path of the main archive.")
 	outFile := flags.String("o", "", "Path to output file.")
 	flags.Var(&archives, "arc", "Label, package path, and file name of a dependency, separated by '='")
@@ -98,7 +99,7 @@ func link(args []string) error {
 		if err != nil {
 			return err
 		}
-		modinfo = modInfoData(modules)
+		modinfo = modInfoData(*mainPackagePath, modules)
 	}
 	importcfgName, err := buildImportcfgFileForLink(archives, *packageList, goenv.installSuffix, filepath.Dir(*outFile), modinfo)
 	if err != nil {
