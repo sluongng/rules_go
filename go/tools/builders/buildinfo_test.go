@@ -180,7 +180,12 @@ func TestBuildInfoDepsSortAndDedup(t *testing.T) {
 }
 
 func TestModInfoDataRoundTrip(t *testing.T) {
-	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", []moduleInfo{
+	settings := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "GOARCH", Value: "arm64"},
+	}
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", settings, []moduleInfo{
 		{path: "golang.org/x/sync", version: "v0.8.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
@@ -204,10 +209,13 @@ func TestModInfoDataRoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got deps %v; want %v", got, want)
 	}
+	if !reflect.DeepEqual(info.Settings, settings) {
+		t.Fatalf("got settings %+v; want %+v", info.Settings, settings)
+	}
 }
 
 func TestModInfoDataWithoutDeps(t *testing.T) {
-	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", nil))
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", nil, nil))
 	if info.Path != "example.com/cmd/tool" {
 		t.Fatalf("got Path %q; want %q", info.Path, "example.com/cmd/tool")
 	}
@@ -217,7 +225,10 @@ func TestModInfoDataWithoutDeps(t *testing.T) {
 }
 
 func TestModInfoDataFormat(t *testing.T) {
-	got := modInfoData("example.com/cmd/tool", []moduleInfo{
+	got := modInfoData("example.com/cmd/tool", []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-tags", Value: "foo,bar"},
+	}, []moduleInfo{
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "golang.org/x/sync", version: "v0.8.0"},
 	})
@@ -225,6 +236,8 @@ func TestModInfoDataFormat(t *testing.T) {
 		"path\texample.com/cmd/tool\n" +
 		"dep\tgithub.com/google/go-cmp\tv0.6.0\t\n" +
 		"dep\tgolang.org/x/sync\tv0.8.0\t\n" +
+		"build\t-buildmode=exe\n" +
+		"build\t-tags=foo,bar\n" +
 		buildInfoEnd
 	if got != want {
 		t.Fatalf("got %q; want %q", got, want)
@@ -232,12 +245,93 @@ func TestModInfoDataFormat(t *testing.T) {
 }
 
 func TestModInfoDataWithoutPathOrDeps(t *testing.T) {
-	info := parseModInfoData(t, modInfoData("", nil))
+	info := parseModInfoData(t, modInfoData("", nil, nil))
 	if info.Path != "" {
 		t.Fatalf("got Path %q; want empty", info.Path)
 	}
 	if len(info.Deps) != 0 {
 		t.Fatalf("got %d deps; want 0", len(info.Deps))
+	}
+	if len(info.Settings) != 0 {
+		t.Fatalf("got %d settings; want 0", len(info.Settings))
+	}
+}
+
+func TestBuildInfoSettingsFromEnv(t *testing.T) {
+	env := map[string]string{
+		"CGO_ENABLED":  "1",
+		"GOARCH":       "amd64",
+		"GOEXPERIMENT": "rangefunc",
+		"GOOS":         "linux",
+		"GOAMD64":      "v3",
+	}
+	got := buildInfoSettingsFromEnv("pie", []string{"foo", "race", "bar"}, true, false, true, "arm64", false, func(key string) string {
+		return env[key]
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "pie"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-cover", Value: "true"},
+		{Key: "-race", Value: "true"},
+		{Key: "-tags", Value: "foo,bar"},
+		{Key: "-trimpath", Value: "true"},
+		{Key: "CGO_ENABLED", Value: "1"},
+		{Key: "GOARCH", Value: "amd64"},
+		{Key: "GOEXPERIMENT", Value: "rangefunc"},
+		{Key: "GOOS", Value: "linux"},
+		{Key: "GOAMD64", Value: "v3"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoSettingsPreservesExplicitInstrumentationTags(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", []string{"race", "foo", "race"}, true, false, false, "amd64", false, func(string) string {
+		return ""
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-race", Value: "true"},
+		{Key: "-tags", Value: "race,foo"},
+		{Key: "-trimpath", Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoArchSetting(t *testing.T) {
+	testCases := []struct {
+		name              string
+		goarch            string
+		hostGoarch        string
+		go123ArchSettings bool
+		env               map[string]string
+		wantKey           string
+		wantValue         string
+	}{
+		{name: "amd64 default", goarch: "amd64", wantKey: "GOAMD64", wantValue: "v1"},
+		{name: "arm cross default", goarch: "arm", hostGoarch: "amd64", wantKey: "GOARM", wantValue: "7"},
+		{name: "arm android default", goarch: "arm", hostGoarch: "arm", env: map[string]string{"GOOS": "android"}, wantKey: "GOARM", wantValue: "7"},
+		{name: "arm native unknown", goarch: "arm", hostGoarch: "arm"},
+		{name: "arm explicit", goarch: "arm", hostGoarch: "arm", env: map[string]string{"GOARM": "6"}, wantKey: "GOARM", wantValue: "6"},
+		{name: "arm64 before Go 1.23", goarch: "arm64"},
+		{name: "arm64 from Go 1.23", goarch: "arm64", go123ArchSettings: true, wantKey: "GOARM64", wantValue: "v8.0"},
+		{name: "riscv64 before Go 1.23", goarch: "riscv64"},
+		{name: "riscv64 from Go 1.23", goarch: "riscv64", go123ArchSettings: true, wantKey: "GORISCV64", wantValue: "rva20u64"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotKey, gotValue := buildInfoArchSetting(tc.goarch, tc.hostGoarch, tc.go123ArchSettings, func(key string) string {
+				return tc.env[key]
+			})
+			if gotKey != tc.wantKey || gotValue != tc.wantValue {
+				t.Fatalf("got %q=%q; want %q=%q", gotKey, gotValue, tc.wantKey, tc.wantValue)
+			}
+		})
 	}
 }
 

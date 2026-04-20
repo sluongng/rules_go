@@ -71,8 +71,10 @@ def emit_link(
 
     # Add in any mode specific behaviours
     if go.mode.race:
+        builder_args.add("-race")
         tool_args.add("-race")
     if go.mode.msan:
+        builder_args.add("-msan")
         tool_args.add("-msan")
 
     if go.mode.pure:
@@ -138,6 +140,8 @@ def emit_link(
     builder_args.add_all(arcs, before_each = "-arc", map_each = _format_archive)
     builder_args.add_all(package_metadata_files, before_each = "-package_metadata")
     builder_args.add("-package_list", go.sdk.package_list)
+    if go.coverage_enabled:
+        builder_args.add("-cover")
 
     # Build a list of rpaths for dynamic libraries we need to find.
     # rpaths are relative paths from the binary to directories where libraries
