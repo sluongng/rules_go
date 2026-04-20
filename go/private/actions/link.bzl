@@ -41,6 +41,8 @@ def emit_link(
         go,
         archive = None,
         test_archives = [],
+        buildinfo_path = None,
+        buildinfo_module_metadata = None,
         executable = None,
         gc_linkopts = [],
         version_file = None,
@@ -52,6 +54,8 @@ def emit_link(
         fail("archive is a required parameter")
     if executable == None:
         fail("executable is a required parameter")
+    if buildinfo_path == None:
+        buildinfo_path = archive.data.importpath
 
     # Exclude -lstdc++ from link options. We don't want to link against it
     # unless we actually have some C++ code. _cgo_codegen will include it
@@ -182,7 +186,9 @@ def emit_link(
 
     builder_args.add("-o", executable)
     builder_args.add("-main", archive.data.file)
-    builder_args.add("-main_package_path", archive.data.importpath)
+    builder_args.add("-main_package_path", buildinfo_path)
+    if buildinfo_module_metadata:
+        builder_args.add("-main_module_metadata", buildinfo_module_metadata)
     builder_args.add("-p", archive.data.importmap)
     tool_args.add_all(gc_linkopts)
     tool_args.add_all(go.toolchain.flags.link)
@@ -194,6 +200,8 @@ def emit_link(
     tool_args.add_joined("-extldflags", extldflags, join_with = " ")
 
     inputs_direct = stamp_inputs + [go.sdk.package_list]
+    if buildinfo_module_metadata:
+        inputs_direct.append(buildinfo_module_metadata)
     if go.coverage_enabled and go.coverdata:
         inputs_direct.append(go.coverdata.data.file)
     inputs_transitive = [

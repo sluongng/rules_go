@@ -45,6 +45,7 @@ func link(args []string) error {
 	goenv := envFlags(flags)
 	main := flags.String("main", "", "Path to the main archive.")
 	mainPackagePath := flags.String("main_package_path", "", "Import path of the main package.")
+	mainModuleMetadata := flags.String("main_module_metadata", "", "Path to the main module's package_metadata JSON file.")
 	race := flags.Bool("race", false, "Whether race instrumentation is enabled.")
 	msan := flags.Bool("msan", false, "Whether memory sanitizer instrumentation is enabled.")
 	cover := flags.Bool("cover", false, "Whether coverage instrumentation is enabled.")
@@ -107,8 +108,19 @@ func link(args []string) error {
 		if err != nil {
 			return err
 		}
+		mainModule := moduleInfo{}
+		if *mainModuleMetadata != "" {
+			mainModules, err := modulesFromPackageMetadataFiles([]string{*mainModuleMetadata})
+			if err != nil {
+				return err
+			}
+			if len(mainModules) > 0 {
+				mainModule = mainModules[0]
+			}
+		}
 		modinfo = modInfoData(
 			*mainPackagePath,
+			mainModule,
 			buildInfoSettings(*buildmode, build.Default.BuildTags, *race, *msan, *cover, go123OrLater),
 			modules,
 		)

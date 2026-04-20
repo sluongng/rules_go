@@ -26,7 +26,7 @@ func TestMain(m *testing.M) {
 	bazel_testing.TestMain(m, bazel_testing.Args{
 		Main: `
 -- BUILD.bazel --
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
 
 package_metadata(
@@ -42,6 +42,19 @@ go_binary(
         "@com_example_versionless//:go_default_library",  # Declared but not imported.
         "@com_github_google_go_cmp//cmp:go_default_library",
     ],
+)
+
+go_library(
+    name = "embedded_main",
+    srcs = ["with_dep.go"],
+    importpath = "example.com/main/cmd/embedded_wrapper",
+    applicable_licenses = [":main_package_metadata"],
+    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
+)
+
+go_binary(
+    name = "embedded_wrapper",
+    embed = [":embedded_main"],
 )
 
 go_test(
@@ -134,6 +147,9 @@ func TestBuildInfoDeps(t *testing.T) {
     if !ok {
         t.Fatal("ReadBuildInfo returned ok=false")
     }
+	if info.Main.Path != "example.com/main" || info.Main.Version != "v1.0.0" {
+		t.Fatalf("got Main %+v; want example.com/main@v1.0.0", info.Main)
+	}
 
     foundCmp := false
     for _, dep := range info.Deps {
@@ -423,8 +439,8 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	if got.Settings["GOARCH"] != runtime.GOARCH {
 		t.Fatalf("got GOARCH %q; want %q", got.Settings["GOARCH"], runtime.GOARCH)
 	}
-	if got.MainPath != "" || got.MainVersion != "" {
-		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
 	}
 	if len(got.Deps) == 0 {
 		t.Fatalf("got no deps: %+v", got)
@@ -449,6 +465,26 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	for _, dep := range got.Deps {
 		if dep.Path == "example.com/main" {
 			t.Fatalf("binary's own metadata was included as a dependency: %+v", got.Deps)
+		}
+	}
+}
+
+func TestReadBuildInfoEmbeddedMain(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "//:embedded_wrapper")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
+	}
+	for _, dep := range got.Deps {
+		if dep.Path == "example.com/main" {
+			t.Fatalf("embedded main module was included as a dependency: %+v", got.Deps)
 		}
 	}
 }

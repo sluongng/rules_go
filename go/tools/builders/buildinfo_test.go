@@ -163,7 +163,7 @@ func TestBuildInfoDepsSortAndDedup(t *testing.T) {
 		{path: "golang.org/x/text", version: "v0.16.0"},
 		{path: "", version: "v1.0.0"},
 		{path: "example.com/missing/version", version: ""},
-	})
+	}, moduleInfo{})
 
 	got := make([]string, 0, len(deps))
 	for _, dep := range deps {
@@ -185,7 +185,7 @@ func TestModInfoDataRoundTrip(t *testing.T) {
 		{Key: "-compiler", Value: "gc"},
 		{Key: "GOARCH", Value: "arm64"},
 	}
-	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", settings, []moduleInfo{
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", moduleInfo{}, settings, []moduleInfo{
 		{path: "golang.org/x/sync", version: "v0.8.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
@@ -214,8 +214,28 @@ func TestModInfoDataRoundTrip(t *testing.T) {
 	}
 }
 
+func TestModInfoDataMainModule(t *testing.T) {
+	info := parseModInfoData(t, modInfoData(
+		"example.com/cmd/tool",
+		moduleInfo{path: "example.com/main", version: "v1.2.3"},
+		nil,
+		[]moduleInfo{
+			{path: "example.com/main", version: "v1.2.3"},
+			{path: "example.com/main", version: "v1.1.0"},
+			{path: "example.com/dep", version: "v0.1.0"},
+		},
+	))
+
+	if info.Main.Path != "example.com/main" || info.Main.Version != "v1.2.3" {
+		t.Fatalf("got Main %+v; want example.com/main@v1.2.3", info.Main)
+	}
+	if len(info.Deps) != 1 || info.Deps[0].Path != "example.com/dep" {
+		t.Fatalf("got Deps %+v; want only example.com/dep", info.Deps)
+	}
+}
+
 func TestModInfoDataWithoutDeps(t *testing.T) {
-	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", nil, nil))
+	info := parseModInfoData(t, modInfoData("example.com/cmd/tool", moduleInfo{}, nil, nil))
 	if info.Path != "example.com/cmd/tool" {
 		t.Fatalf("got Path %q; want %q", info.Path, "example.com/cmd/tool")
 	}
@@ -225,7 +245,7 @@ func TestModInfoDataWithoutDeps(t *testing.T) {
 }
 
 func TestModInfoDataFormat(t *testing.T) {
-	got := modInfoData("example.com/cmd/tool", []debug.BuildSetting{
+	got := modInfoData("example.com/cmd/tool", moduleInfo{}, []debug.BuildSetting{
 		{Key: "-buildmode", Value: "exe"},
 		{Key: "-tags", Value: "foo,bar"},
 	}, []moduleInfo{
@@ -245,7 +265,7 @@ func TestModInfoDataFormat(t *testing.T) {
 }
 
 func TestModInfoDataWithoutPathOrDeps(t *testing.T) {
-	info := parseModInfoData(t, modInfoData("", nil, nil))
+	info := parseModInfoData(t, modInfoData("", moduleInfo{}, nil, nil))
 	if info.Path != "" {
 		t.Fatalf("got Path %q; want empty", info.Path)
 	}

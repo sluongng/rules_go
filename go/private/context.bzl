@@ -294,6 +294,9 @@ def _merge_embed(source, embed):
     package_metadata = getattr(s, "_package_metadata", None)
     if not source["_package_metadata"] and package_metadata:
         source["_package_metadata"] = package_metadata
+    main_module_package_metadata = getattr(s, "_main_module_package_metadata", None)
+    if not source["_main_module_package_metadata"] and main_module_package_metadata:
+        source["_main_module_package_metadata"] = main_module_package_metadata
 
     if s.cgo:
         if source["cgo"]:
@@ -400,12 +403,11 @@ def new_go_info(
     if deps == None:
         deps = [get_archive(dep) for dep in getattr(attr, "deps", [])]
 
-    package_metadata = None
-    if include_package_metadata:
-        package_metadata = package_metadata_file_from_metadata(
-            getattr(attr, "package_metadata", ()),
-            getattr(attr, "applicable_licenses", ()),
-        )
+    main_module_package_metadata = package_metadata_file_from_metadata(
+        getattr(attr, "package_metadata", ()),
+        getattr(attr, "applicable_licenses", ()),
+    )
+    package_metadata = main_module_package_metadata if include_package_metadata else None
 
     go_info = {
         "name": go.label.name if not name else name,
@@ -432,6 +434,7 @@ def new_go_info(
         "clinkopts": _expand_opts(go, "clinkopts", getattr(attr, "clinkopts", [])),
         "pgoprofile": getattr(attr, "pgoprofile", None),
         "_package_metadata": package_metadata,
+        "_main_module_package_metadata": main_module_package_metadata,
     }
 
     for e in getattr(attr, "embed", []):

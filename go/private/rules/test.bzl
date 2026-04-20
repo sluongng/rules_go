@@ -184,11 +184,14 @@ def _go_test_impl(ctx):
         generated_srcs = [main_go],
         coverage_instrumented = False,
     )
+    buildinfo_path = internal_go_info.importpath + ".test" if internal_go_info.importpath else None
     test_archive, executable, runfiles = go.binary(
         go,
         name = ctx.label.name,
         source = test_go_info,
         test_archives = [internal_archive.data],
+        buildinfo_path = buildinfo_path,
+        buildinfo_module_metadata = getattr(internal_go_info, "_main_module_package_metadata", None),
         gc_linkopts = test_gc_linkopts,
         version_file = ctx.version_file,
         info_file = ctx.info_file,
