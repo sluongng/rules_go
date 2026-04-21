@@ -31,13 +31,15 @@ def emit_binary(
         name = "",
         source = None,
         test_archives = [],
-        buildinfo_path = None,
-        buildinfo_module_metadata = None,
         gc_linkopts = [],
         version_file = None,
         info_file = None,
         executable = None,
-        link_exec_group = None):
+        link_exec_group = None,
+        buildinfo_path = None,
+        buildinfo_module_metadata = None,
+        buildinfo_module_main_workspace = False,
+        main_workspace = True):
     """See go/toolchains.rst#binary for full documentation."""
 
     if name == "" and executable == None:
@@ -46,6 +48,7 @@ def emit_binary(
         buildinfo_path = source.importpath
     if buildinfo_module_metadata == None:
         buildinfo_module_metadata = getattr(source, "_main_module_package_metadata", None)
+        buildinfo_module_main_workspace = getattr(source, "_main_module_main_workspace", False)
 
     archive = go.archive(go, source)
     if not executable:
@@ -66,10 +69,12 @@ def emit_binary(
         test_archives = test_archives,
         buildinfo_path = buildinfo_path,
         buildinfo_module_metadata = buildinfo_module_metadata,
+        buildinfo_module_main_workspace = buildinfo_module_main_workspace,
         executable = executable,
         gc_linkopts = gc_linkopts,
         version_file = version_file,
         info_file = info_file,
+        main_workspace = main_workspace,
         exec_group = link_exec_group,
     )
     cgo_dynamic_deps = [

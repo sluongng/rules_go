@@ -184,17 +184,24 @@ def _go_test_impl(ctx):
         generated_srcs = [main_go],
         coverage_instrumented = False,
     )
-    buildinfo_path = internal_go_info.importpath + ".test" if internal_go_info.importpath else None
+    buildinfo_module_metadata = getattr(internal_go_info, "_main_module_package_metadata", None)
+    buildinfo_module_main_workspace = getattr(internal_go_info, "_main_module_main_workspace", False)
+    buildinfo_path = None
+    if internal_go_info.importpath:
+        buildinfo_path = internal_go_info.importpath + ".test"
+
     test_archive, executable, runfiles = go.binary(
         go,
         name = ctx.label.name,
         source = test_go_info,
         test_archives = [internal_archive.data],
         buildinfo_path = buildinfo_path,
-        buildinfo_module_metadata = getattr(internal_go_info, "_main_module_package_metadata", None),
+        buildinfo_module_metadata = buildinfo_module_metadata,
+        buildinfo_module_main_workspace = buildinfo_module_main_workspace,
         gc_linkopts = test_gc_linkopts,
         version_file = ctx.version_file,
         info_file = ctx.info_file,
+        main_workspace = not ctx.label.repo_name and not getattr(ctx.label, "workspace_root", ""),
         link_exec_group = "go_link",
     )
 
@@ -742,6 +749,8 @@ def _recompile_external_deps(go, external_go_info, internal_archive, library_lab
             cxxopts = list(arc_data._cxxopts),
             clinkopts = list(arc_data._clinkopts),
             _package_metadata = package_metadata,
+            _main_module_package_metadata = getattr(arc_data, "_main_module_package_metadata", None),
+            _main_module_main_workspace = getattr(arc_data, "_main_module_main_workspace", False),
         )
 
         # If this archive needs to be recompiled, use go.archive.
@@ -767,6 +776,8 @@ def _recompile_external_deps(go, external_go_info, internal_archive, library_lab
                     direct = [package_metadata] if package_metadata else [],
                     transitive = [getattr(a, "_package_metadata_files", depset()) for a in deps],
                 ),
+                _main_module_package_metadata = getattr(arc_data, "_main_module_package_metadata", None),
+                _main_module_main_workspace = getattr(arc_data, "_main_module_main_workspace", False),
             )
         label_to_archive[label] = archive
 

@@ -272,15 +272,25 @@ def _tool_args(go):
     args.use_param_file("-param=%s")
     return args
 
-def package_metadata_file_from_metadata(package_metadata = (), applicable_licenses = ()):
+def _is_main_workspace_label(label):
+    return not label.repo_name and not getattr(label, "workspace_root", "")
+
+def _package_metadata_target_from_metadata(package_metadata = (), applicable_licenses = ()):
     # Bazel may surface repo-level metadata through either spelling depending on
     # the version and rule surface, so probe both.
     for metadata_group in (package_metadata, applicable_licenses):
         for metadata in metadata_group:
             if PackageMetadataInfo in metadata:
-                return metadata[PackageMetadataInfo].metadata
-
+                return metadata
     return None
+
+def package_metadata_file_from_metadata(package_metadata = (), applicable_licenses = ()):
+    metadata = _package_metadata_target_from_metadata(package_metadata, applicable_licenses)
+    return metadata[PackageMetadataInfo].metadata if metadata else None
+
+def package_metadata_main_workspace_from_metadata(package_metadata = (), applicable_licenses = ()):
+    metadata = _package_metadata_target_from_metadata(package_metadata, applicable_licenses)
+    return metadata != None and _is_main_workspace_label(metadata.label)
 
 def _merge_embed(source, embed):
     s = get_source(embed)
@@ -297,6 +307,7 @@ def _merge_embed(source, embed):
     main_module_package_metadata = getattr(s, "_main_module_package_metadata", None)
     if not source["_main_module_package_metadata"] and main_module_package_metadata:
         source["_main_module_package_metadata"] = main_module_package_metadata
+        source["_main_module_main_workspace"] = getattr(s, "_main_module_main_workspace", False)
 
     if s.cgo:
         if source["cgo"]:
@@ -408,7 +419,10 @@ def new_go_info(
         getattr(attr, "applicable_licenses", ()),
     )
     package_metadata = main_module_package_metadata if include_package_metadata else None
-
+    main_module_main_workspace = package_metadata_main_workspace_from_metadata(
+        getattr(attr, "package_metadata", ()),
+        getattr(attr, "applicable_licenses", ()),
+    )
     go_info = {
         "name": go.label.name if not name else name,
         "label": go.label,
@@ -435,6 +449,7 @@ def new_go_info(
         "pgoprofile": getattr(attr, "pgoprofile", None),
         "_package_metadata": package_metadata,
         "_main_module_package_metadata": main_module_package_metadata,
+        "_main_module_main_workspace": main_module_main_workspace,
     }
 
     for e in getattr(attr, "embed", []):

@@ -17,8 +17,6 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
 	"go/build"
@@ -38,6 +36,7 @@ func link(args []string) error {
 	}
 	builderArgs, toolArgs := splitArgs(args)
 	stamps := multiFlag{}
+	vcsStamps := multiFlag{}
 	xdefs := multiFlag{}
 	packageMetadataFiles := multiFlag{}
 	archives := archiveMultiFlag{}
@@ -46,6 +45,8 @@ func link(args []string) error {
 	main := flags.String("main", "", "Path to the main archive.")
 	mainPackagePath := flags.String("main_package_path", "", "Import path of the main package.")
 	mainModuleMetadata := flags.String("main_module_metadata", "", "Path to the main module's package_metadata JSON file.")
+	mainModuleMainWorkspace := flags.Bool("main_module_main_workspace", false, "Whether the linked main module metadata comes from the main workspace.")
+	mainWorkspace := flags.Bool("main_workspace", false, "Whether the linked target is in the main workspace.")
 	race := flags.Bool("race", false, "Whether race instrumentation is enabled.")
 	msan := flags.Bool("msan", false, "Whether memory sanitizer instrumentation is enabled.")
 	cover := flags.Bool("cover", false, "Whether coverage instrumentation is enabled.")
@@ -57,6 +58,7 @@ func link(args []string) error {
 	buildmode := flags.String("buildmode", "", "Build mode used.")
 	flags.Var(&xdefs, "X", "A string variable to replace in the linked binary (repeated).")
 	flags.Var(&stamps, "stamp", "The name of a file with stamping values.")
+	flags.Var(&vcsStamps, "vcs_stamp", "The name of a file with normalized VCS stamping values.")
 	if err := flags.Parse(builderArgs); err != nil {
 		return err
 	}
@@ -78,27 +80,14 @@ func link(args []string) error {
 	}
 	*main = abs(*main)
 
-	// If we were given any stamp value files, read and parse them
-	stampMap := map[string]string{}
-	for _, stampfile := range stamps {
-		stampbuf, err := os.ReadFile(stampfile)
-		if err != nil {
-			return fmt.Errorf("Failed reading stamp file %s: %v", stampfile, err)
-		}
-		scanner := bufio.NewScanner(bytes.NewReader(stampbuf))
-		for scanner.Scan() {
-			line := strings.SplitN(scanner.Text(), " ", 2)
-			switch len(line) {
-			case 0:
-				// Nothing to do here
-			case 1:
-				// Map to the empty string
-				stampMap[line[0]] = ""
-			case 2:
-				// Key and value
-				stampMap[line[0]] = line[1]
-			}
-		}
+	// If we were given any stamp value files, read and parse them.
+	stampMap, err := readStampMap(stamps)
+	if err != nil {
+		return err
+	}
+	vcsStampMap, err := readStampMap(vcsStamps)
+	if err != nil {
+		return err
 	}
 
 	// Build an importcfg file.
@@ -121,7 +110,7 @@ func link(args []string) error {
 		modinfo = modInfoData(
 			*mainPackagePath,
 			mainModule,
-			buildInfoSettings(*buildmode, build.Default.BuildTags, *race, *msan, *cover, go123OrLater),
+			buildInfoSettings(*buildmode, build.Default.BuildTags, *race, *msan, *cover, go123OrLater, mainModule.path, *mainWorkspace, *mainModuleMainWorkspace, vcsStampMap),
 			modules,
 		)
 	}

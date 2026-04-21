@@ -145,8 +145,10 @@ filegroup(
         "nogo_validation.go",
         "read.go",
         "replicate.go",
+        "stamp.go",
         "stdlib.go",
         "stdliblist.go",
+        "vcsstamp.go",
     ] + select({
         "@bazel_tools//src/conditions:windows": ["path_windows.go"],
         "//conditions:default": ["path.go"],

@@ -768,6 +768,9 @@ embedding, cgo dependencies, coverage, and assembling and packing .s files.
 It returns a tuple containing GoArchive_, the output executable file, and
 a ``runfiles`` object.
 
+.. |module metadata| replace:: :param:`buildinfo_module_metadata`
+.. |module provenance| replace:: :param:`buildinfo_module_main_workspace`
+
 +--------------------------------+-----------------------------+-----------------------------------+
 | **Name**                       | **Type**                    | **Default value**                 |
 +--------------------------------+-----------------------------+-----------------------------------+
@@ -803,6 +806,25 @@ a ``runfiles`` object.
 +--------------------------------+-----------------------------+-----------------------------------+
 | Optional output file to write. If not set, ``binary`` will generate an output                    |
 | file name based on ``name``, the target platform, and the link mode.                             |
++--------------------------------+-----------------------------+-----------------------------------+
+| :param:`buildinfo_path`        | :type:`string`              | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Main package path recorded in ``runtime/debug.BuildInfo``. Defaults to ``source.importpath``.    |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module metadata|              | :type:`File`                | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Package metadata JSON file used to populate ``BuildInfo.Main``. Defaults to the metadata         |
+| propagated by :param:`source`.                                                                   |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module provenance|            | :type:`bool`                | :value:`False`                    |
++--------------------------------+-----------------------------+-----------------------------------+
+| Whether :param:`buildinfo_module_metadata` comes from the main workspace. Inferred when the      |
+| metadata defaults from :param:`source`; controls whether stamped ``vcs.*`` settings are emitted. |
++--------------------------------+-----------------------------+-----------------------------------+
+| :param:`main_workspace`        | :type:`bool`                | :value:`True`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Whether the binary target comes from the main workspace. Set this to ``False`` for custom rules  |
+| that link targets in external repositories so caller workspace VCS data is not attributed to it. |
 +--------------------------------+-----------------------------+-----------------------------------+
 
 
@@ -846,6 +868,26 @@ It does not return anything.
 | :param:`info_file`             | :type:`File`                | :value:`None`                     |
 +--------------------------------+-----------------------------+-----------------------------------+
 | Info file used for link stamping.                                                                |
++--------------------------------+-----------------------------+-----------------------------------+
+| :param:`main_workspace`        | :type:`bool`                | :value:`True`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Whether the linked target comes from the main workspace. Set this to ``False`` for external      |
+| repository targets to avoid attributing caller workspace VCS data to them.                       |
++--------------------------------+-----------------------------+-----------------------------------+
+| :param:`buildinfo_path`        | :type:`string`              | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Main package path recorded in ``runtime/debug.BuildInfo``. Defaults to the archive import path.  |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module metadata|              | :type:`File`                | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Package metadata JSON file used to populate ``BuildInfo.Main``. Defaults to metadata propagated  |
+| by :param:`archive`.                                                                             |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module provenance|            | :type:`bool`                | :value:`False`                    |
++--------------------------------+-----------------------------+-----------------------------------+
+| Whether :param:`buildinfo_module_metadata` comes from the main workspace. Inferred when the      |
+| metadata defaults from :param:`archive`; controls whether stamped ``vcs.*`` settings are         |
+| emitted.                                                                                          |
 +--------------------------------+-----------------------------+-----------------------------------+
 
 

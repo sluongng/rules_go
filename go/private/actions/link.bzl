@@ -24,6 +24,7 @@ load(
 )
 load(
     "//go/private:mode.bzl",
+    "LINKMODES_EXECUTABLE",
     "LINKMODE_NORMAL",
     "LINKMODE_PLUGIN",
     "extld_from_cc_toolchain",
@@ -37,17 +38,39 @@ load(
 def _format_archive(d):
     return "{}={}={}".format(d.label, d.importmap, d.file.path)
 
+def _should_emit_buildinfo(go):
+    return go.mode.linkmode in LINKMODES_EXECUTABLE
+
+def _emit_vcs_stamp(go, info_file, executable):
+    out = go.actions.declare_file(executable.basename + ".vcsstamp", sibling = executable)
+    args = go.tool_args(go)
+    args.add("vcsstamp")
+    args.add("-in", info_file)
+    args.add("-out", out)
+    go.actions.run(
+        inputs = [info_file],
+        outputs = [out],
+        mnemonic = "GoVCSStamp",
+        executable = go.toolchain._builder,
+        arguments = [args],
+        env = go.env,
+        toolchain = GO_TOOLCHAIN_LABEL,
+    )
+    return out
+
 def emit_link(
         go,
         archive = None,
         test_archives = [],
-        buildinfo_path = None,
-        buildinfo_module_metadata = None,
         executable = None,
         gc_linkopts = [],
         version_file = None,
         info_file = None,
-        exec_group = None):
+        exec_group = None,
+        buildinfo_path = None,
+        buildinfo_module_metadata = None,
+        buildinfo_module_main_workspace = False,
+        main_workspace = True):
     """See go/toolchains.rst#link for full documentation."""
 
     if archive == None:
@@ -56,6 +79,12 @@ def emit_link(
         fail("executable is a required parameter")
     if buildinfo_path == None:
         buildinfo_path = archive.data.importpath
+    if buildinfo_module_metadata == None:
+        buildinfo_module_metadata = getattr(archive.data, "_main_module_package_metadata", None)
+        buildinfo_module_main_workspace = getattr(archive.data, "_main_module_main_workspace", False)
+    main_workspace = (main_workspace and
+                      not go.label.repo_name and
+                      not getattr(go.label, "workspace_root", ""))
 
     # Exclude -lstdc++ from link options. We don't want to link against it
     # unless we actually have some C++ code. _cgo_codegen will include it
@@ -175,9 +204,19 @@ def emit_link(
             if count_group_matches(v, "{", "}") != stable_vars_count:
                 stamp_x_defs_volatile = True
 
+    vcs_stamp_file = None
+    if (go.mode.stamp and
+        info_file and
+        main_workspace and
+        buildinfo_module_metadata and
+        buildinfo_module_main_workspace and
+        _should_emit_buildinfo(go)):
+        vcs_stamp_file = _emit_vcs_stamp(go, info_file, executable)
+        builder_args.add("-vcs_stamp", vcs_stamp_file)
+
     # Stamping support
     stamp_inputs = []
-    if stamp_x_defs_stable:
+    if stamp_x_defs_stable and info_file:
         stamp_inputs.append(info_file)
     if stamp_x_defs_volatile:
         stamp_inputs.append(version_file)
@@ -189,6 +228,8 @@ def emit_link(
     builder_args.add("-main_package_path", buildinfo_path)
     if buildinfo_module_metadata:
         builder_args.add("-main_module_metadata", buildinfo_module_metadata)
+    builder_args.add("-main_module_main_workspace=%s" % ("true" if buildinfo_module_main_workspace else "false"))
+    builder_args.add("-main_workspace=%s" % ("true" if main_workspace else "false"))
     builder_args.add("-p", archive.data.importmap)
     tool_args.add_all(gc_linkopts)
     tool_args.add_all(go.toolchain.flags.link)
@@ -202,6 +243,8 @@ def emit_link(
     inputs_direct = stamp_inputs + [go.sdk.package_list]
     if buildinfo_module_metadata:
         inputs_direct.append(buildinfo_module_metadata)
+    if vcs_stamp_file:
+        inputs_direct.append(vcs_stamp_file)
     if go.coverage_enabled and go.coverdata:
         inputs_direct.append(go.coverdata.data.file)
     inputs_transitive = [

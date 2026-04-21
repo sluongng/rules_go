@@ -15,6 +15,9 @@
 package non_executable_test
 
 import (
+	"fmt"
+	"os"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -69,7 +72,24 @@ no_runfiles_check = rule(
     }
 )
 `,
+		SetUp: func() error {
+			return writeStatusCommand()
+		},
 	})
+}
+
+func statusCommand() string {
+	if runtime.GOOS == "windows" {
+		return `.\\status.bat`
+	}
+	return "./status.sh"
+}
+
+func writeStatusCommand() error {
+	if runtime.GOOS == "windows" {
+		return os.WriteFile("status.bat", []byte(fmt.Sprintf("@echo off\r\necho STABLE_BUILD_SCM_VCS git\r\necho STABLE_BUILD_SCM_REVISION %s\r\n", "abc123")), 0o666)
+	}
+	return os.WriteFile("status.sh", []byte(fmt.Sprintf("#!/bin/sh\n\necho \"STABLE_BUILD_SCM_VCS git\"\necho \"STABLE_BUILD_SCM_REVISION %s\"\n", "abc123")), 0o755)
 }
 
 func TestNonExecutableGoBinaryCantBeRun(t *testing.T) {
@@ -85,5 +105,22 @@ func TestNonExecutableGoBinaryCantBeRun(t *testing.T) {
 func TestNonExecutableGoBinaryNotInRunfiles(t *testing.T) {
 	if err := bazel_testing.RunBazel("build", "//src:no_runfiles"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestStampedNonExecutableGoBinaryAvoidsStableStatusInput(t *testing.T) {
+	out, err := bazel_testing.BazelOutput(
+		"aquery",
+		"--stamp",
+		"--workspace_status_command="+statusCommand(),
+		`mnemonic("GoLink", //src:archive)`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	action := string(out)
+	if strings.Contains(action, "stable-status.txt") {
+		t.Fatalf("unexpected stable-status stamp input in action:\n%s", action)
 	}
 }
