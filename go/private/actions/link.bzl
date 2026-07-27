@@ -127,18 +127,25 @@ def emit_link(
                 continue
             importmaps[arc.importmap] = True
             arcs.append(arc)
+        package_metadata_files = depset([
+            metadata
+            for arc in arcs
+            for metadata in [getattr(arc, "_package_metadata", None)]
+            if metadata
+        ])
     else:
         arcs = depset(test_archives, transitive = [d.transitive for d in archive.direct])
+        package_metadata_files = depset(
+            direct = [
+                metadata
+                for archive_data in test_archives
+                for metadata in [getattr(archive_data, "_package_metadata", None)]
+                if metadata
+            ],
+            transitive = [d._package_metadata_files for d in archive.direct],
+        )
 
-    arc_list = arcs.to_list() if type(arcs) == "depset" else arcs
-    package_metadata_files = depset([
-        metadata
-        for d in arc_list
-        for metadata in [getattr(d, "_package_metadata", None)]
-        if metadata
-    ])
-
-    builder_args.add_all(arc_list, before_each = "-arc", map_each = _format_archive)
+    builder_args.add_all(arcs, before_each = "-arc", map_each = _format_archive)
     builder_args.add_all(package_metadata_files, before_each = "-package_metadata")
     builder_args.add("-go_version", go.sdk.version)
     builder_args.add("-package_list", go.sdk.package_list)
