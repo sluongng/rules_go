@@ -106,7 +106,7 @@ def _gomock_source_impl(ctx):
             out = ctx.outputs.out.path,
         ),
         env = {
-            # GOCACHE is required starting in Go 1.12
+            # Keep generated cache data inside the action sandbox.
             "GOCACHE": "./.gocache",
             # gomock runs in the special GOPATH environment
             "GO111MODULE": "off",
@@ -347,7 +347,7 @@ def _gomock_prog_exec_impl(ctx):
             out = ctx.outputs.out.path,
         ),
         env = {
-            # GOCACHE is required starting in Go 1.12
+            # Keep generated cache data inside the action sandbox.
             "GOCACHE": "./.gocache",
         },
         mnemonic = "GoMockReflectExecOnlyGen",
