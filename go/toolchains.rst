@@ -47,6 +47,8 @@ containing sources for the Go toolchain and standard library and pre-compiled
 binaries for the same. You can download this from by visiting the `Go website`_
 and downloading a `binary distribution`_.
 
+rules_go requires Go SDK 1.18 or later.
+
 There are several Bazel rules for obtaining and configuring a Go SDK:
 
 * `go_download_sdk`_: downloads a toolchain for a specific version of Go for a
@@ -313,7 +315,7 @@ go_register_toolchains
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Installs the Go toolchains. If :param:`version` is specified, it sets the
-SDK version to use (for example, :value:`"1.15.5"`).
+SDK version to use (for example, :value:`"1.18.1"`).
 
 +--------------------------------+-----------------------------+-----------------------------------+
 | **Name**                       | **Type**                    | **Default value**                 |
@@ -325,7 +327,7 @@ SDK version to use (for example, :value:`"1.15.5"`).
 | If a toolchain was already declared with `go_download_sdk`_ or a similar rule,                   |
 | this parameter may not be set.                                                                   |
 |                                                                                                  |
-| Normally this is set to a Go version like :value:`"1.15.5"`. It may also be                      |
+| Normally this is set to a Go version like :value:`"1.18.1"`. It may also be                      |
 | set to :value:`"host"`, which will cause rules_go to use the Go toolchain                        |
 | installed on the host system (found using ``GOROOT`` or ``PATH``).                               |
 |                                                                                                  |
@@ -373,7 +375,7 @@ This downloads a Go SDK for use in toolchains.
 +--------------------------------+-----------------------------+---------------------------------------------+
 | :param:`version`               | :type:`string`              | :value:`latest Go version`                  |
 +--------------------------------+-----------------------------+---------------------------------------------+
-| The version of Go to download, for example ``1.12.5``. If unspecified,                                     |
+| The version of Go to download, for example ``1.18.1``. If unspecified,                                     |
 | ``go_download_sdk`` will list available versions of Go from golang.org, then                               |
 | pick the highest version. If ``version`` is specified but ``sdks`` is                                      |
 | unspecified, ``go_download_sdk`` will list available versions on golang.org                                |
