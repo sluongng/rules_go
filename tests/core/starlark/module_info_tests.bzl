@@ -6,7 +6,6 @@ PackageMetadataProbeInfo = provider()
 
 def _package_metadata_probe_impl(ctx):
     metadata = package_metadata_file_from_metadata(
-        Label(ctx.attr.module_label),
         getattr(ctx.attr, "package_metadata", ()),
         getattr(ctx.attr, "applicable_licenses", ()),
     )
@@ -17,7 +16,6 @@ def _package_metadata_probe_impl(ctx):
 package_metadata_probe = rule(
     implementation = _package_metadata_probe_impl,
     attrs = {
-        "module_label": attr.string(mandatory = True),
         "package_metadata": attr.label_list(),
     },
 )
@@ -38,14 +36,6 @@ def _applicable_licenses_test_impl(ctx):
 
 applicable_licenses_test = analysistest.make(_applicable_licenses_test_impl)
 
-def _main_workspace_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    info = analysistest.target_under_test(env)[PackageMetadataProbeInfo]
-    asserts.equals(env, "", info.basename)
-    return analysistest.end(env)
-
-main_workspace_test = analysistest.make(_main_workspace_test_impl)
-
 def module_info_test_suite():
     package_metadata(
         name = "cmp_package_metadata",
@@ -54,7 +44,6 @@ def module_info_test_suite():
 
     package_metadata_probe(
         name = "package_metadata_probe",
-        module_label = "@com_github_google_go_cmp//cmp:go_default_library",
         package_metadata = [":cmp_package_metadata"],
         tags = ["manual"],
     )
@@ -71,7 +60,6 @@ def module_info_test_suite():
 
     package_metadata_probe(
         name = "applicable_licenses_probe",
-        module_label = "@org_golang_x_sync//errgroup:go_default_library",
         applicable_licenses = [":sync_package_metadata"],
         tags = ["manual"],
     )
@@ -79,16 +67,4 @@ def module_info_test_suite():
     applicable_licenses_test(
         name = "applicable_licenses_test",
         target_under_test = ":applicable_licenses_probe",
-    )
-
-    package_metadata_probe(
-        name = "main_workspace_probe",
-        module_label = "//tests/core/starlark:main_workspace_probe",
-        package_metadata = [":cmp_package_metadata"],
-        tags = ["manual"],
-    )
-
-    main_workspace_test(
-        name = "main_workspace_test",
-        target_under_test = ":main_workspace_probe",
     )

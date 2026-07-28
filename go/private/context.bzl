@@ -272,10 +272,7 @@ def _tool_args(go):
     args.use_param_file("-param=%s")
     return args
 
-def package_metadata_file_from_metadata(label, package_metadata = (), applicable_licenses = ()):
-    if not label.repo_name and not label.workspace_root:
-        return None
-
+def package_metadata_file_from_metadata(package_metadata = (), applicable_licenses = ()):
     # Bazel may surface repo-level metadata through either spelling depending on
     # the version and rule surface, so probe both.
     for metadata_group in (package_metadata, applicable_licenses):
@@ -403,7 +400,6 @@ def new_go_info(
         deps = [get_archive(dep) for dep in getattr(attr, "deps", [])]
 
     package_metadata = package_metadata_file_from_metadata(
-        go.label,
         getattr(attr, "package_metadata", ()),
         getattr(attr, "applicable_licenses", ()),
     )

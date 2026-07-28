@@ -26,10 +26,17 @@ func TestMain(m *testing.M) {
 		Main: `
 -- BUILD.bazel --
 load("@io_bazel_rules_go//go:def.bzl", "go_binary")
+load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
+
+package_metadata(
+    name = "main_package_metadata",
+    purl = "pkg:golang/example.com/main@v1.0.0",
+)
 
 go_binary(
     name = "with_dep",
     srcs = ["with_dep.go"],
+    applicable_licenses = [":main_package_metadata"],
     deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
 )
 
@@ -42,6 +49,12 @@ go_binary(
     name = "with_versionless_dep",
     srcs = ["with_versionless_dep.go"],
     deps = ["@com_example_versionless//:go_default_library"],
+)
+
+go_binary(
+    name = "with_vendored_dep",
+    srcs = ["with_vendored_dep.go"],
+    deps = ["//third_party/vendored:vendored"],
 )
 -- with_dep.go --
 package main
@@ -144,6 +157,64 @@ func main() {
         }
     }
     _ = json.NewEncoder(os.Stdout).Encode(out)
+}
+
+-- with_vendored_dep.go --
+package main
+
+import (
+    "encoding/json"
+    "os"
+    "runtime/debug"
+
+    "example.com/vendored"
+)
+
+type dep struct {
+    Path    string ` + "`json:\"path\"`" + `
+    Version string ` + "`json:\"version\"`" + `
+}
+
+type output struct {
+    OK   bool  ` + "`json:\"ok\"`" + `
+    Deps []dep ` + "`json:\"deps\"`" + `
+}
+
+func main() {
+    _ = vendored.Name()
+
+    info, ok := debug.ReadBuildInfo()
+    out := output{OK: ok}
+    if info != nil {
+        for _, module := range info.Deps {
+            out.Deps = append(out.Deps, dep{Path: module.Path, Version: module.Version})
+        }
+    }
+    _ = json.NewEncoder(os.Stdout).Encode(out)
+}
+
+-- third_party/vendored/BUILD.bazel --
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
+
+package_metadata(
+    name = "package_metadata",
+    purl = "pkg:golang/example.com/vendored@v1.2.3",
+)
+
+go_library(
+    name = "vendored",
+    srcs = ["vendored.go"],
+    importpath = "example.com/vendored",
+    applicable_licenses = [":package_metadata"],
+    visibility = ["//visibility:public"],
+)
+
+-- third_party/vendored/vendored.go --
+package vendored
+
+func Name() string {
+    return "vendored"
 }
 
 -- deps/com_github_google_go_cmp/MODULE.bazel --
@@ -289,6 +360,11 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	if !foundCmp {
 		t.Fatalf("missing github.com/google/go-cmp@v0.6.0 in %+v", got.Deps)
 	}
+	for _, dep := range got.Deps {
+		if dep.Path == "example.com/main" {
+			t.Fatalf("binary's own metadata was included as a dependency: %+v", got.Deps)
+		}
+	}
 }
 
 func TestReadBuildInfoWithoutMetadata(t *testing.T) {
@@ -336,4 +412,26 @@ func TestReadBuildInfoVersionlessDep(t *testing.T) {
 	if !foundVersionless {
 		t.Fatalf("missing example.com/versionless@(devel) in %+v", got.Deps)
 	}
+}
+
+func TestReadBuildInfoVendoredDep(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "//:with_vendored_dep")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if !got.OK {
+		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
+	}
+
+	for _, dep := range got.Deps {
+		if dep.Path == "example.com/vendored" && dep.Version == "v1.2.3" {
+			return
+		}
+	}
+	t.Fatalf("missing example.com/vendored@v1.2.3 in %+v", got.Deps)
 }
