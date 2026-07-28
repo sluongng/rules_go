@@ -759,7 +759,6 @@ def _recompile_external_deps(go, external_go_info, internal_archive, library_lab
                 runfiles = go_info.runfiles,
                 mode = go.mode,
                 _headers = internal_archive._headers,
-                _package_metadata = package_metadata,
                 _package_metadata_files = depset(
                     direct = [package_metadata] if package_metadata else [],
                     transitive = [a._package_metadata_files for a in deps],

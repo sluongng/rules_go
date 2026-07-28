@@ -40,14 +40,13 @@ func link(args []string) error {
 	stamps := multiFlag{}
 	xdefs := multiFlag{}
 	packageMetadataFiles := multiFlag{}
-	archives := linkArchiveMultiFlag{}
+	archives := archiveMultiFlag{}
 	flags := flag.NewFlagSet("link", flag.ExitOnError)
 	goenv := envFlags(flags)
-	goVersion := flags.String("go_version", "", "The SDK Go version from rules_go, without the leading 'go' prefix (for example 1.24.3).")
 	main := flags.String("main", "", "Path to the main archive.")
 	packagePath := flags.String("p", "", "Package path of the main archive.")
 	outFile := flags.String("o", "", "Path to output file.")
-	flags.Var(&archives, "arc", "Label, import path, package path, and file name of a dependency, separated by '='")
+	flags.Var(&archives, "arc", "Label, package path, and file name of a dependency, separated by '='")
 	flags.Var(&packageMetadataFiles, "package_metadata", "Path to a package_metadata JSON file (repeated).")
 	packageList := flags.String("package_list", "", "The file containing the list of standard library packages")
 	buildmode := flags.String("buildmode", "", "Build mode used.")
@@ -95,14 +94,14 @@ func link(args []string) error {
 
 	// Build an importcfg file.
 	modinfo := ""
-	if shouldEmitBuildInfo(*goVersion, *buildmode) {
+	if shouldEmitBuildInfo(*buildmode) {
 		modules, err := modulesFromPackageMetadataFiles(packageMetadataFiles)
 		if err != nil {
 			return err
 		}
 		modinfo = modInfoData(modules)
 	}
-	importcfgName, err := buildImportcfgFileForLink([]archive(archives), *packageList, goenv.installSuffix, filepath.Dir(*outFile), modinfo)
+	importcfgName, err := buildImportcfgFileForLink(archives, *packageList, goenv.installSuffix, filepath.Dir(*outFile), modinfo)
 	if err != nil {
 		return err
 	}

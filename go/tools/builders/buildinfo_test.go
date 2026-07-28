@@ -197,25 +197,20 @@ func TestModInfoDataFormat(t *testing.T) {
 
 func TestShouldEmitBuildInfo(t *testing.T) {
 	testCases := []struct {
-		name      string
-		goVersion string
 		buildmode string
+		name      string
 		want      bool
 	}{
-		{name: "default version", goVersion: "", want: true},
-		{name: "go117", goVersion: "1.17", want: false},
-		{name: "go117_patch", goVersion: "1.17.1", want: false},
-		{name: "go117_rc", goVersion: "1.17rc1", want: false},
-		{name: "go118", goVersion: "1.18", want: true},
-		{name: "go_prefix", goVersion: "go1.18.3", want: true},
-		{name: "plugin", goVersion: "1.24.0", buildmode: "plugin", want: false},
-		{name: "unknown", goVersion: "devel go1.26-abcdef", want: true},
+		{name: "default", want: true},
+		{name: "c_archive", buildmode: "c-archive", want: false},
+		{name: "c_shared", buildmode: "c-shared", want: false},
+		{name: "plugin", buildmode: "plugin", want: false},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := shouldEmitBuildInfo(tc.goVersion, tc.buildmode); got != tc.want {
-				t.Fatalf("shouldEmitBuildInfo(%q, %q) = %t; want %t", tc.goVersion, tc.buildmode, got, tc.want)
+			if got := shouldEmitBuildInfo(tc.buildmode); got != tc.want {
+				t.Fatalf("shouldEmitBuildInfo(%q) = %t; want %t", tc.buildmode, got, tc.want)
 			}
 		})
 	}

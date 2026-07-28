@@ -237,6 +237,5 @@ def emit_archive(go, source = None, _recompile_suffix = "", recompile_internal_d
         cgo_exports = cgo_exports,
         runfiles = runfiles,
         _headers = headers,
-        _package_metadata = getattr(data, "_package_metadata", None),
         _package_metadata_files = package_metadata_files,
     )

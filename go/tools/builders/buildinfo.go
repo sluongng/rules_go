@@ -21,7 +21,6 @@ import (
 	"net/url"
 	"runtime/debug"
 	"sort"
-	"strconv"
 	"strings"
 )
 
@@ -140,65 +139,15 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 }
 
 func modInfoData(modules []moduleInfo) string {
-	deps := buildInfoDeps(modules)
-	if len(deps) == 0 {
-		return buildInfoStart + buildInfoEnd
-	}
-
-	// debug.BuildInfo.String was added after Go 1.17. Emit the dep-only
-	// modinfo format directly so older SDK builders still compile.
-	var buf strings.Builder
-	for _, dep := range deps {
-		buf.WriteString("dep\t")
-		buf.WriteString(dep.Path)
-		buf.WriteByte('\t')
-		buf.WriteString(dep.Version)
-		buf.WriteString("\t\n")
-	}
-	return buildInfoStart + buf.String() + buildInfoEnd
+	info := &debug.BuildInfo{Deps: buildInfoDeps(modules)}
+	return buildInfoStart + info.String() + buildInfoEnd
 }
 
-func shouldEmitBuildInfo(goVersion, buildmode string) bool {
+func shouldEmitBuildInfo(buildmode string) bool {
 	switch buildmode {
 	case "c-archive", "c-shared", "plugin":
 		return false
 	default:
-		return supportsBuildInfo(goVersion)
-	}
-}
-
-func supportsBuildInfo(goVersion string) bool {
-	if goVersion == "" {
 		return true
 	}
-	goVersion = strings.TrimPrefix(goVersion, "go")
-	parts := strings.SplitN(goVersion, ".", 3)
-	if len(parts) != 2 {
-		if len(parts) == 3 {
-			parts = parts[:2]
-		} else {
-			// Keep build info enabled for newer or non-standard version strings
-			// we don't recognize.
-			return true
-		}
-	}
-	minor := parts[1]
-	for i := 0; i < len(minor); i++ {
-		if minor[i] < '0' || minor[i] > '9' {
-			minor = minor[:i]
-			break
-		}
-	}
-	if minor == "" {
-		return true
-	}
-	major, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return true
-	}
-	minorVersion, err := strconv.Atoi(minor)
-	if err != nil {
-		return true
-	}
-	return major > 1 || (major == 1 && minorVersion >= 18)
 }

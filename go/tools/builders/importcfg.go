@@ -182,10 +182,6 @@ func buildImportcfgFileForLink(archives []archive, stdPackageListPath, installSu
 	}
 	depsSeen := map[string]string{}
 	for _, arc := range archives {
-		label := arc.label
-		if label == "" {
-			label = arc.importPath
-		}
 		if prevLabel, ok := depsSeen[arc.packagePath]; ok {
 			return "", fmt.Errorf(`
 package conflict error: %s: multiple copies of package passed to linker:
@@ -194,10 +190,13 @@ package conflict error: %s: multiple copies of package passed to linker:
 Set "importmap" to different paths or use 'bazel cquery' to ensure only one
 package with this path is linked.`,
 				arc.packagePath,
-				label,
+				arc.importPath,
 				prevLabel)
 		}
-		depsSeen[arc.packagePath] = label
+		// TODO(zbarsky): The labels are empty, and `importPath` contains the label.
+		// The parsing is incorrect because arrchiveMultiFlag assuming the formatting from
+		// `compilepkg.bzl` but `_format_archive` in `link.bzl` formats differently.
+		depsSeen[arc.packagePath] = arc.importPath
 		fmt.Fprintf(buf, "packagefile %s=%s\n", arc.packagePath, arc.file)
 	}
 	f, err := ioutil.TempFile(dir, "importcfg")
@@ -272,28 +271,5 @@ func (m *archiveMultiFlag) Set(v string) error {
 		file:              abs(parts[2]),
 	}
 	*m = append(*m, a)
-	return nil
-}
-
-type linkArchiveMultiFlag []archive
-
-func (m *linkArchiveMultiFlag) String() string {
-	if m == nil || len(*m) == 0 {
-		return ""
-	}
-	return fmt.Sprint(*m)
-}
-
-func (m *linkArchiveMultiFlag) Set(v string) error {
-	parts := strings.Split(v, "=")
-	if len(parts) != 4 {
-		return fmt.Errorf("badly formed -arc flag: %s", v)
-	}
-	*m = append(*m, archive{
-		label:       parts[0],
-		importPath:  parts[1],
-		packagePath: parts[2],
-		file:        abs(parts[3]),
-	})
 	return nil
 }
