@@ -33,7 +33,6 @@ load(
     "//go/private:providers.bzl",
     "GoStdLib",
 )
-load("//go/private:sdk.bzl", "parse_version")
 load("//go/private/actions:utils.bzl", "quote_opts")
 
 def emit_stdlib(go):
@@ -50,10 +49,6 @@ def emit_stdlib(go):
     return [go_info, stdlib]
 
 def _should_use_sdk_stdlib(go):
-    version = parse_version(go.sdk.version)
-    if version and version[0] <= 1 and version[1] <= 19 and go.sdk.experiments:
-        # The precompiled stdlib shipped with 1.19 or below doesn't have experiments
-        return False
     return (go.sdk.libs and  # go.sdk.libs is non-empty if sdk ships with precompiled .a files
             go.mode.goos == go.sdk.goos and
             go.mode.goarch == go.sdk.goarch and
@@ -150,11 +145,9 @@ def _build_stdlib(go):
     if not go.mode.pure:
         args.add("-package", "runtime/cgo")
 
-    version = parse_version(go.sdk.version)
-    if version and version[0] >= 1 and version[1] >= 20:
-        # For bzltestutil's coverage support - `cmd/internal/cov` only introduced in go 1.20
-        args.add("-package", "cmd/internal/cov")
-        args.add("-package", "cmd/internal/bio")
+    # For bzltestutil's coverage support.
+    args.add("-package", "cmd/internal/cov")
+    args.add("-package", "cmd/internal/bio")
 
     link_mode_flag = link_mode_arg(go.mode)
     if link_mode_flag:
