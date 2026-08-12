@@ -24,8 +24,6 @@ load(
 )
 load(
     "//go/private:mode.bzl",
-    "LINKMODE_NORMAL",
-    "LINKMODE_PIE",
     "extldflags_from_cc_toolchain",
     "link_mode_arg",
 )
@@ -45,18 +43,8 @@ def emit_stdlib(go):
         A list of providers containing GoInfo and GoStdLib.
     """
     go_info = new_go_info(go, {}, coverage_instrumented = False)
-    stdlib = _sdk_stdlib(go) if _should_use_sdk_stdlib(go) else _build_stdlib(go)
+    stdlib = _build_stdlib(go)
     return [go_info, stdlib]
-
-def _should_use_sdk_stdlib(go):
-    return (go.sdk.libs and  # go.sdk.libs is non-empty if sdk ships with precompiled .a files
-            go.mode.goos == go.sdk.goos and
-            go.mode.goarch == go.sdk.goarch and
-            not go.mode.race and  # TODO(jayconrod): use precompiled race
-            not go.mode.msan and
-            not go.mode.pure and
-            not go.mode.gc_goopts and
-            go.mode.linkmode in (LINKMODE_NORMAL, LINKMODE_PIE))
 
 def _build_stdlib_list_json(go):
     sdk = go.sdk
@@ -116,16 +104,6 @@ def _build_env(go):
     })
 
     return env
-
-def _sdk_stdlib(go):
-    list_json, cache_dir = _build_stdlib_list_json(go)
-    return GoStdLib(
-        _list_json = list_json,
-        cgo_link_inputs = depset(),
-        cache_dir = depset([cache_dir]),
-        libs = go.sdk.libs,
-        root_file = go.sdk.root_file,
-    )
 
 def _dirname(file):
     return file.dirname
