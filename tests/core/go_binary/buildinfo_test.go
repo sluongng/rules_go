@@ -84,6 +84,7 @@ type dep struct {
 
 type output struct {
     OK          bool   ` + "`json:\"ok\"`" + `
+    Path        string ` + "`json:\"path\"`" + `
     MainPath    string ` + "`json:\"main_path\"`" + `
     MainVersion string ` + "`json:\"main_version\"`" + `
     Deps        []dep  ` + "`json:\"deps\"`" + `
@@ -95,6 +96,7 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
         for _, module := range info.Deps {
@@ -147,6 +149,7 @@ import (
 
 type output struct {
     OK          bool   ` + "`json:\"ok\"`" + `
+    Path        string ` + "`json:\"path\"`" + `
     MainPath    string ` + "`json:\"main_path\"`" + `
     MainVersion string ` + "`json:\"main_version\"`" + `
     DepCount    int    ` + "`json:\"dep_count\"`" + `
@@ -156,6 +159,7 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
         out.DepCount = len(info.Deps)
@@ -181,6 +185,7 @@ type dep struct {
 
 type output struct {
     OK          bool   ` + "`json:\"ok\"`" + `
+    Path        string ` + "`json:\"path\"`" + `
     MainPath    string ` + "`json:\"main_path\"`" + `
     MainVersion string ` + "`json:\"main_version\"`" + `
     Deps        []dep  ` + "`json:\"deps\"`" + `
@@ -192,6 +197,7 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
         for _, module := range info.Deps {
@@ -360,6 +366,7 @@ type dep struct {
 
 type withDepOutput struct {
 	OK          bool   `json:"ok"`
+	Path        string `json:"path"`
 	MainPath    string `json:"main_path"`
 	MainVersion string `json:"main_version"`
 	Deps        []dep  `json:"deps"`
@@ -367,6 +374,7 @@ type withDepOutput struct {
 
 type stdlibOnlyOutput struct {
 	OK          bool   `json:"ok"`
+	Path        string `json:"path"`
 	MainPath    string `json:"main_path"`
 	MainVersion string `json:"main_version"`
 	DepCount    int    `json:"dep_count"`
@@ -384,6 +392,9 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	}
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
+	}
+	if got.Path != "with_dep" {
+		t.Fatalf("got Path %q; want %q", got.Path, "with_dep")
 	}
 	if got.MainPath != "" || got.MainVersion != "" {
 		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
@@ -428,6 +439,9 @@ func TestReadBuildInfoWithoutMetadata(t *testing.T) {
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
 	}
+	if got.Path != "stdlib_only" {
+		t.Fatalf("got Path %q; want %q", got.Path, "stdlib_only")
+	}
 	if got.MainPath != "" || got.MainVersion != "" {
 		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
 	}
@@ -460,6 +474,9 @@ func TestReadBuildInfoVersionlessDep(t *testing.T) {
 	}
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
+	}
+	if got.Path != "with_versionless_dep" {
+		t.Fatalf("got Path %q; want %q", got.Path, "with_versionless_dep")
 	}
 
 	foundVersionless := false

@@ -189,8 +189,8 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 	return deps
 }
 
-func modInfoData(modules []moduleInfo) string {
-	info := &debug.BuildInfo{Deps: buildInfoDeps(modules)}
+func modInfoData(path string, modules []moduleInfo) string {
+	info := &debug.BuildInfo{Path: path, Deps: buildInfoDeps(modules)}
 	return buildInfoStart + info.String() + buildInfoEnd
 }
 

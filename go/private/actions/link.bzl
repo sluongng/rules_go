@@ -178,6 +178,7 @@ def emit_link(
 
     builder_args.add("-o", executable)
     builder_args.add("-main", archive.data.file)
+    builder_args.add("-main_package_path", archive.data.importpath)
     builder_args.add("-p", archive.data.importmap)
     tool_args.add_all(gc_linkopts)
     tool_args.add_all(go.toolchain.flags.link)
