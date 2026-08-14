@@ -92,3 +92,36 @@ argument on the command line:
 $ bazel build --stamp --workspace_status_command=./status.sh //:cmd
 ```
 
+### VCS build info
+
+When `go_binary` and `go_test` targets are linked with stamping enabled,
+`rules_go` also maps a small stable workspace status convention into Go build
+info. These settings are visible through `runtime/debug.ReadBuildInfo` and
+`go version -m`. They are only emitted when the linked target and its recorded
+main module both come from the main workspace; stamped binaries built from
+external repositories, targets without main module metadata, and local wrappers
+around external main modules omit `vcs.*` settings. Main-module provenance
+follows the metadata source that supplied `Main.Path`, including embedded
+libraries and `package_metadata` / `applicable_licenses`.
+
+| Workspace status key | Go build info setting | Notes |
+| --- | --- | --- |
+| `STABLE_BUILD_SCM_VCS` | `vcs` | Required and must be non-empty before any `vcs.*` settings are emitted. |
+| `STABLE_BUILD_SCM_REVISION` | `vcs.revision` | Optional when non-empty. |
+| `STABLE_BUILD_SCM_TIME` | `vcs.time` | Optional; must be `RFC3339Nano` and is normalized to UTC. |
+| `STABLE_BUILD_SCM_STATUS` | `vcs.modified` | Optional; `Clean` becomes `false`, `Modified` becomes `true`. |
+
+Invalid or missing optional values are ignored individually.
+
+``` bash
+#!/usr/bin/env bash
+
+echo "STABLE_BUILD_SCM_VCS git"
+echo "STABLE_BUILD_SCM_REVISION $(git rev-parse HEAD)"
+echo "STABLE_BUILD_SCM_TIME $(git show -s --format=%cI HEAD)"
+if git diff-index --quiet HEAD --; then
+  echo "STABLE_BUILD_SCM_STATUS Clean"
+else
+  echo "STABLE_BUILD_SCM_STATUS Modified"
+fi
+```

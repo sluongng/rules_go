@@ -21,6 +21,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestModuleFromPURL(t *testing.T) {
@@ -277,6 +278,136 @@ func TestModInfoDataWithoutPathOrDeps(t *testing.T) {
 	}
 }
 
+func TestBuildInfoSettingsFromEnvIncludesVCSSettings(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", nil, false, false, false, "amd64", true, "example.com/mainmodule", true, true, func(string) string {
+		return ""
+	}, map[string]string{
+		buildSCMVCSKey:      "git",
+		buildSCMRevisionKey: "abc123",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-trimpath", Value: "true"},
+		{Key: "vcs", Value: "git"},
+		{Key: "vcs.revision", Value: "abc123"},
+		{Key: "vcs.time", Value: time.Date(2026, time.April, 21, 10, 47, 2, 0, time.UTC).Format(time.RFC3339Nano)},
+		{Key: "vcs.modified", Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoVCSEntriesFilterAndNormalize(t *testing.T) {
+	got := buildInfoVCSEntries(map[string]string{
+		buildSCMVCSKey:      " git ",
+		buildSCMRevisionKey: " abc123 ",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+		"BUILD_USER":        "someone-else",
+		"BUILD_HOST":        "builder.example.com",
+	})
+	want := []stampEntry{
+		{key: buildSCMVCSKey, value: "git"},
+		{key: buildSCMRevisionKey, value: "abc123"},
+		{key: buildSCMTimeKey, value: time.Date(2026, time.April, 21, 10, 47, 2, 0, time.UTC).Format(time.RFC3339Nano)},
+		{key: buildSCMStatusKey, value: "Modified"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got VCS entries %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoVCSEntriesRequireVCSKey(t *testing.T) {
+	got := buildInfoVCSEntries(map[string]string{
+		buildSCMRevisionKey: "abc123",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+	})
+	if got != nil {
+		t.Fatalf("got VCS entries %+v; want nil", got)
+	}
+}
+
+func TestBuildInfoSettingsFromEnvOmitsMalformedVCSSettings(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", nil, false, false, false, "amd64", true, "example.com/mainmodule", true, true, func(string) string {
+		return ""
+	}, map[string]string{
+		buildSCMVCSKey:    "hg",
+		buildSCMTimeKey:   "not-a-time",
+		buildSCMStatusKey: "Dirty",
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-trimpath", Value: "true"},
+		{Key: "vcs", Value: "hg"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoSettingsFromEnvOmitsVCSSettingsWithoutMainModule(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", nil, false, false, false, "amd64", true, "", true, true, func(string) string {
+		return ""
+	}, map[string]string{
+		buildSCMVCSKey:      "git",
+		buildSCMRevisionKey: "abc123",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-trimpath", Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoSettingsFromEnvOmitsVCSSettingsForExternalMainModule(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", nil, false, false, false, "amd64", true, "example.com/externalmodule", true, false, func(string) string {
+		return ""
+	}, map[string]string{
+		buildSCMVCSKey:      "git",
+		buildSCMRevisionKey: "abc123",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-trimpath", Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
+func TestBuildInfoSettingsFromEnvOmitsVCSSettingsOutsideMainWorkspace(t *testing.T) {
+	got := buildInfoSettingsFromEnv("normal", nil, false, false, false, "amd64", true, "example.com/mainmodule", false, true, func(string) string {
+		return ""
+	}, map[string]string{
+		buildSCMVCSKey:      "git",
+		buildSCMRevisionKey: "abc123",
+		buildSCMTimeKey:     "2026-04-21T17:47:02+07:00",
+		buildSCMStatusKey:   "Modified",
+	})
+	want := []debug.BuildSetting{
+		{Key: "-buildmode", Value: "exe"},
+		{Key: "-compiler", Value: "gc"},
+		{Key: "-trimpath", Value: "true"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got settings %+v; want %+v", got, want)
+	}
+}
+
 func TestBuildInfoSettingsFromEnv(t *testing.T) {
 	env := map[string]string{
 		"CGO_ENABLED":  "1",
@@ -285,9 +416,9 @@ func TestBuildInfoSettingsFromEnv(t *testing.T) {
 		"GOOS":         "linux",
 		"GOAMD64":      "v3",
 	}
-	got := buildInfoSettingsFromEnv("pie", []string{"foo", "race", "bar"}, true, false, true, "arm64", false, func(key string) string {
+	got := buildInfoSettingsFromEnv("pie", []string{"foo", "race", "bar"}, true, false, true, "arm64", false, "example.com/mainmodule", true, true, func(key string) string {
 		return env[key]
-	})
+	}, nil)
 	want := []debug.BuildSetting{
 		{Key: "-buildmode", Value: "pie"},
 		{Key: "-compiler", Value: "gc"},
@@ -307,9 +438,9 @@ func TestBuildInfoSettingsFromEnv(t *testing.T) {
 }
 
 func TestBuildInfoSettingsPreservesExplicitInstrumentationTags(t *testing.T) {
-	got := buildInfoSettingsFromEnv("normal", []string{"race", "foo", "race"}, true, false, false, "amd64", false, func(string) string {
+	got := buildInfoSettingsFromEnv("normal", []string{"race", "foo", "race"}, true, false, false, "amd64", false, "example.com/mainmodule", true, true, func(string) string {
 		return ""
-	})
+	}, nil)
 	want := []debug.BuildSetting{
 		{Key: "-buildmode", Value: "exe"},
 		{Key: "-compiler", Value: "gc"},

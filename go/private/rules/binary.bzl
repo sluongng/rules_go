@@ -155,6 +155,8 @@ def _go_binary_impl(ctx):
         importable = False,
         is_main = is_main,
     )
+    buildinfo_module_metadata = getattr(go_info, "_main_module_package_metadata", None)
+    buildinfo_module_main_workspace = getattr(go_info, "_main_module_main_workspace", False)
     name = ctx.attr.basename
     if not name:
         name = ctx.label.name
@@ -168,9 +170,12 @@ def _go_binary_impl(ctx):
         go,
         name = name,
         source = go_info,
+        buildinfo_module_metadata = buildinfo_module_metadata,
+        buildinfo_module_main_workspace = buildinfo_module_main_workspace,
         gc_linkopts = gc_linkopts(ctx),
         version_file = ctx.version_file,
         info_file = ctx.info_file,
+        main_workspace = not ctx.label.repo_name and not getattr(ctx.label, "workspace_root", ""),
         link_exec_group = "go_link",
         executable = executable,
     )

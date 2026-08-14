@@ -22,7 +22,9 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -30,6 +32,11 @@ const (
 	// https://go.dev/src/cmd/go/internal/modload/build.go#L29-L30
 	buildInfoStart = "\x30\x77\xaf\x0c\x92\x74\x08\x02\x41\xe1\xc1\x07\xe6\xd6\x18\xe6"
 	buildInfoEnd   = "\xf9\x32\x43\x31\x86\x18\x20\x72\x00\x82\x42\x10\x41\x16\xd8\xf2"
+
+	buildSCMVCSKey      = "STABLE_BUILD_SCM_VCS"
+	buildSCMRevisionKey = "STABLE_BUILD_SCM_REVISION"
+	buildSCMTimeKey     = "STABLE_BUILD_SCM_TIME"
+	buildSCMStatusKey   = "STABLE_BUILD_SCM_STATUS"
 )
 
 type moduleInfo struct {
@@ -156,6 +163,11 @@ func moduleFromPURL(purl string) (moduleInfo, bool, error) {
 	return moduleInfo{path: modulePath, version: moduleVersion}, true, nil
 }
 
+type stampEntry struct {
+	key   string
+	value string
+}
+
 func buildInfoDeps(modules []moduleInfo, mainModule moduleInfo) []*debug.Module {
 	// Package metadata is not guaranteed to come from a single MVS-resolved
 	// module graph. Preserve distinct versions for the same path rather than
@@ -200,11 +212,11 @@ func buildInfoMain(module moduleInfo) debug.Module {
 	return debug.Module{Path: module.path, Version: module.version}
 }
 
-func buildInfoSettings(buildmode string, buildTags []string, race, msan, cover, go123ArchSettings bool) []debug.BuildSetting {
-	return buildInfoSettingsFromEnv(buildmode, buildTags, race, msan, cover, runtime.GOARCH, go123ArchSettings, os.Getenv)
+func buildInfoSettings(buildmode string, buildTags []string, race, msan, cover, go123ArchSettings bool, mainModulePath string, mainWorkspace, mainModuleMainWorkspace bool, stampMap map[string]string) []debug.BuildSetting {
+	return buildInfoSettingsFromEnv(buildmode, buildTags, race, msan, cover, runtime.GOARCH, go123ArchSettings, mainModulePath, mainWorkspace, mainModuleMainWorkspace, os.Getenv, stampMap)
 }
 
-func buildInfoSettingsFromEnv(buildmode string, buildTags []string, race, msan, cover bool, hostGoarch string, go123ArchSettings bool, getenv func(string) string) []debug.BuildSetting {
+func buildInfoSettingsFromEnv(buildmode string, buildTags []string, race, msan, cover bool, hostGoarch string, go123ArchSettings bool, mainModulePath string, mainWorkspace, mainModuleMainWorkspace bool, getenv func(string) string, stampMap map[string]string) []debug.BuildSetting {
 	if buildmode == "" || buildmode == "normal" {
 		buildmode = "exe"
 	}
@@ -239,7 +251,53 @@ func buildInfoSettingsFromEnv(buildmode string, buildTags []string, race, msan, 
 	if key, value := buildInfoArchSetting(goarch, hostGoarch, go123ArchSettings, getenv); key != "" && value != "" {
 		settings = append(settings, debug.BuildSetting{Key: key, Value: value})
 	}
+	settings = append(settings, buildInfoVCSSettings(mainModulePath, mainWorkspace, mainModuleMainWorkspace, stampMap)...)
 	return settings
+}
+
+func buildInfoVCSSettings(mainModulePath string, mainWorkspace, mainModuleMainWorkspace bool, stampMap map[string]string) []debug.BuildSetting {
+	if !mainWorkspace || !mainModuleMainWorkspace || mainModulePath == "" {
+		return nil
+	}
+	vcsEntries := buildInfoVCSEntries(stampMap)
+	if len(vcsEntries) == 0 {
+		return nil
+	}
+
+	settings := []debug.BuildSetting{{Key: "vcs", Value: vcsEntries[0].value}}
+	for _, entry := range vcsEntries[1:] {
+		switch entry.key {
+		case buildSCMRevisionKey:
+			settings = append(settings, debug.BuildSetting{Key: "vcs.revision", Value: entry.value})
+		case buildSCMTimeKey:
+			settings = append(settings, debug.BuildSetting{Key: "vcs.time", Value: entry.value})
+		case buildSCMStatusKey:
+			settings = append(settings, debug.BuildSetting{Key: "vcs.modified", Value: strconv.FormatBool(entry.value == "Modified")})
+		}
+	}
+	return settings
+}
+
+func buildInfoVCSEntries(stampMap map[string]string) []stampEntry {
+	vcs := strings.TrimSpace(stampMap[buildSCMVCSKey])
+	if vcs == "" {
+		return nil
+	}
+
+	entries := []stampEntry{{key: buildSCMVCSKey, value: vcs}}
+	if revision := strings.TrimSpace(stampMap[buildSCMRevisionKey]); revision != "" {
+		entries = append(entries, stampEntry{key: buildSCMRevisionKey, value: revision})
+	}
+	if stamp := strings.TrimSpace(stampMap[buildSCMTimeKey]); stamp != "" {
+		if parsed, err := time.Parse(time.RFC3339Nano, stamp); err == nil {
+			entries = append(entries, stampEntry{key: buildSCMTimeKey, value: parsed.UTC().Format(time.RFC3339Nano)})
+		}
+	}
+	switch status := strings.TrimSpace(stampMap[buildSCMStatusKey]); status {
+	case "Clean", "Modified":
+		entries = append(entries, stampEntry{key: buildSCMStatusKey, value: status})
+	}
+	return entries
 }
 
 func buildInfoTags(buildTags []string, race, msan bool) []string {
