@@ -17,8 +17,8 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/debug"
-	"slices"
 	"strings"
 	"testing"
 )
@@ -47,6 +47,36 @@ func TestModuleFromPURL(t *testing.T) {
 			name:   "normalizes version and strips qualifiers",
 			purl:   "pkg:golang/example.com/module@1.2.3?goos=linux#cmd/tool",
 			want:   moduleInfo{path: "example.com/module", version: "v1.2.3"},
+			wantOK: true,
+		},
+		{
+			name:   "preserves commit hash",
+			purl:   "pkg:golang/github.com/gorilla/context@234fd47e07d1004f0aed9c#api",
+			want:   moduleInfo{path: "github.com/gorilla/context", version: "234fd47e07d1004f0aed9c"},
+			wantOK: true,
+		},
+		{
+			name:   "normalizes valid prerelease",
+			purl:   "pkg:golang/example.com/module@1.2.3-alpha.1+build.01",
+			want:   moduleInfo{path: "example.com/module", version: "v1.2.3-alpha.1+build.01"},
+			wantOK: true,
+		},
+		{
+			name:   "preserves invalid prerelease",
+			purl:   "pkg:golang/example.com/module@1.2.3-alpha.01",
+			want:   moduleInfo{path: "example.com/module", version: "1.2.3-alpha.01"},
+			wantOK: true,
+		},
+		{
+			name:   "preserves prerelease on shorthand",
+			purl:   "pkg:golang/example.com/module@1.2-alpha",
+			want:   moduleInfo{path: "example.com/module", version: "1.2-alpha"},
+			wantOK: true,
+		},
+		{
+			name:   "preserves build metadata on shorthand",
+			purl:   "pkg:golang/example.com/module@1+meta",
+			want:   moduleInfo{path: "example.com/module", version: "1+meta"},
 			wantOK: true,
 		},
 		{
@@ -101,7 +131,7 @@ func TestModulesFromPackageMetadataFiles(t *testing.T) {
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "example.com/versionless", version: "(devel)"},
 	}
-	if !slices.Equal(got, want) {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got modules %v; want %v", got, want)
 	}
 }
@@ -130,6 +160,7 @@ func TestBuildInfoDepsSortAndDedup(t *testing.T) {
 		{path: "golang.org/x/text", version: "v0.15.0"},
 		{path: "github.com/google/go-cmp", version: "v0.6.0"},
 		{path: "golang.org/x/text", version: "v0.15.0"},
+		{path: "golang.org/x/text", version: "v0.16.0"},
 		{path: "", version: "v1.0.0"},
 		{path: "example.com/missing/version", version: ""},
 	})
@@ -141,8 +172,9 @@ func TestBuildInfoDepsSortAndDedup(t *testing.T) {
 	want := []string{
 		"github.com/google/go-cmp@v0.6.0",
 		"golang.org/x/text@v0.15.0",
+		"golang.org/x/text@v0.16.0",
 	}
-	if !slices.Equal(got, want) {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got deps %v; want %v", got, want)
 	}
 }
@@ -169,7 +201,7 @@ func TestModInfoDataRoundTrip(t *testing.T) {
 		"github.com/google/go-cmp@v0.6.0",
 		"golang.org/x/sync@v0.8.0",
 	}
-	if !slices.Equal(got, want) {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got deps %v; want %v", got, want)
 	}
 }

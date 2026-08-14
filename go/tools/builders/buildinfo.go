@@ -17,8 +17,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/url"
+	"os"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -40,10 +40,58 @@ type packageMetadata struct {
 	PURL string `json:"purl"`
 }
 
+func isUnprefixedSemver(version string) bool {
+	coreAndPrerelease, build, hasBuild := strings.Cut(version, "+")
+	if hasBuild && !validSemverIdentifiers(build, false) {
+		return false
+	}
+	core, prerelease, hasPrerelease := strings.Cut(coreAndPrerelease, "-")
+	if hasPrerelease && !validSemverIdentifiers(prerelease, true) {
+		return false
+	}
+	parts := strings.Split(core, ".")
+	if len(parts) == 0 || len(parts) > 3 || (hasBuild || hasPrerelease) && len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" || len(part) > 1 && part[0] == '0' {
+			return false
+		}
+		for _, c := range []byte(part) {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func validSemverIdentifiers(value string, rejectNumericLeadingZero bool) bool {
+	for _, identifier := range strings.Split(value, ".") {
+		if identifier == "" {
+			return false
+		}
+		numeric := true
+		for _, c := range []byte(identifier) {
+			if c >= '0' && c <= '9' {
+				continue
+			}
+			numeric = false
+			if c != '-' && (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') {
+				return false
+			}
+		}
+		if rejectNumericLeadingZero && numeric && len(identifier) > 1 && identifier[0] == '0' {
+			return false
+		}
+	}
+	return true
+}
+
 func modulesFromPackageMetadataFiles(paths []string) ([]moduleInfo, error) {
 	modules := make([]moduleInfo, 0, len(paths))
 	for _, path := range paths {
-		data, err := ioutil.ReadFile(path)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return nil, fmt.Errorf("reading package metadata %q: %w", path, err)
 		}
@@ -99,7 +147,7 @@ func moduleFromPURL(purl string) (moduleInfo, bool, error) {
 		if err != nil {
 			return moduleInfo{}, false, fmt.Errorf("unescaping Go module version: %w", err)
 		}
-		if !strings.HasPrefix(moduleVersion, "v") {
+		if isUnprefixedSemver(moduleVersion) {
 			moduleVersion = "v" + moduleVersion
 		}
 	}
@@ -108,6 +156,9 @@ func moduleFromPURL(purl string) (moduleInfo, bool, error) {
 }
 
 func buildInfoDeps(modules []moduleInfo) []*debug.Module {
+	// Package metadata is not guaranteed to come from a single MVS-resolved
+	// module graph. Preserve distinct versions for the same path rather than
+	// silently choosing one when independently authored metadata conflicts.
 	seen := map[moduleInfo]struct{}{}
 	unique := make([]moduleInfo, 0, len(modules))
 	for _, module := range modules {

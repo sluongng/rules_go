@@ -15,15 +15,14 @@ def _package_metadata_probe_impl(ctx):
 
 package_metadata_probe = rule(
     implementation = _package_metadata_probe_impl,
-    attrs = {
-        "package_metadata": attr.label_list(),
-    },
 )
 
 def _package_metadata_test_impl(ctx):
     env = analysistest.begin(ctx)
-    info = analysistest.target_under_test(env)[PackageMetadataProbeInfo]
-    asserts.equals(env, "cmp_package_metadata.package-metadata.json", info.basename)
+    metadata = package_metadata_file_from_metadata(
+        package_metadata = [analysistest.target_under_test(env)],
+    )
+    asserts.equals(env, "cmp_package_metadata.package-metadata.json", metadata.basename)
     return analysistest.end(env)
 
 package_metadata_test = analysistest.make(_package_metadata_test_impl)
@@ -42,15 +41,9 @@ def module_info_test_suite():
         purl = "pkg:golang/github.com/google/go-cmp@v0.6.0",
     )
 
-    package_metadata_probe(
-        name = "package_metadata_probe",
-        package_metadata = [":cmp_package_metadata"],
-        tags = ["manual"],
-    )
-
     package_metadata_test(
         name = "package_metadata_test",
-        target_under_test = ":package_metadata_probe",
+        target_under_test = ":cmp_package_metadata",
     )
 
     package_metadata(

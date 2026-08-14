@@ -78,6 +78,7 @@ def _go_test_impl(ctx):
         go,
         ctx.attr,
         testfilter = "exclude",
+        include_package_metadata = False,
     )
     internal_archive = go.archive(go, internal_go_info)
     if internal_archive.data._validation_output:
@@ -761,7 +762,7 @@ def _recompile_external_deps(go, external_go_info, internal_archive, library_lab
                 _headers = internal_archive._headers,
                 _package_metadata_files = depset(
                     direct = [package_metadata] if package_metadata else [],
-                    transitive = [a._package_metadata_files for a in deps],
+                    transitive = [getattr(a, "_package_metadata_files", depset()) for a in deps],
                 ),
             )
         label_to_archive[label] = archive

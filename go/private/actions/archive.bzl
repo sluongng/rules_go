@@ -223,7 +223,7 @@ def emit_archive(go, source = None, _recompile_suffix = "", recompile_internal_d
     package_metadata = getattr(data, "_package_metadata", None)
     package_metadata_files = depset(
         direct = [package_metadata] if package_metadata else [],
-        transitive = [a._package_metadata_files for a in direct],
+        transitive = [getattr(a, "_package_metadata_files", depset()) for a in direct],
     )
     return GoArchive(
         source = source,

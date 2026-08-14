@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -316,7 +315,7 @@ func Test(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer builder_file.Close()
-		builder_data, err := ioutil.ReadAll(builder_file)
+		builder_data, err := io.ReadAll(builder_file)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -343,7 +342,7 @@ func Test(t *testing.T) {
 				if !strings.HasSuffix(path, ".a") {
 					return nil
 				}
-				data, err := ioutil.ReadFile(path)
+				data, err := os.ReadFile(path)
 				if err != nil {
 					t.Fatal(err)
 				}

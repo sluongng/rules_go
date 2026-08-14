@@ -25,6 +25,7 @@ load(
     NOGO_EXCLUDES = "EXCLUDES",
     NOGO_INCLUDES = "INCLUDES",
 )
+load("@package_metadata//providers:package_metadata_info.bzl", "PackageMetadataInfo")
 load(
     "@rules_cc//cc:action_names.bzl",
     "CPP_COMPILE_ACTION_NAME",
@@ -40,7 +41,6 @@ load(
     "find_cc_toolchain",
 )
 load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
-load("@package_metadata//providers:package_metadata_info.bzl", "PackageMetadataInfo")
 load(
     "//go/platform:apple.bzl",
     "apple_ensure_options",
@@ -376,6 +376,7 @@ def new_go_info(
         generated_srcs = [],
         pathtype = None,
         deps = None,
+        include_package_metadata = True,
         verify_resolver_deps = False):
     if not importpath:
         importpath = go.importpath
@@ -399,10 +400,12 @@ def new_go_info(
     if deps == None:
         deps = [get_archive(dep) for dep in getattr(attr, "deps", [])]
 
-    package_metadata = package_metadata_file_from_metadata(
-        getattr(attr, "package_metadata", ()),
-        getattr(attr, "applicable_licenses", ()),
-    )
+    package_metadata = None
+    if include_package_metadata:
+        package_metadata = package_metadata_file_from_metadata(
+            getattr(attr, "package_metadata", ()),
+            getattr(attr, "applicable_licenses", ()),
+        )
 
     go_info = {
         "name": go.label.name if not name else name,
@@ -433,6 +436,9 @@ def new_go_info(
 
     for e in getattr(attr, "embed", []):
         _merge_embed(go_info, e)
+
+    if not include_package_metadata:
+        go_info["_package_metadata"] = None
 
     go_info["deps"] = _dedup_archives(go_info["deps"])
 
