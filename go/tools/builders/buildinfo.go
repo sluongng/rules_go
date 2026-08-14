@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -155,7 +156,7 @@ func moduleFromPURL(purl string) (moduleInfo, bool, error) {
 	return moduleInfo{path: modulePath, version: moduleVersion}, true, nil
 }
 
-func buildInfoDeps(modules []moduleInfo) []*debug.Module {
+func buildInfoDeps(modules []moduleInfo, mainModule moduleInfo) []*debug.Module {
 	// Package metadata is not guaranteed to come from a single MVS-resolved
 	// module graph. Preserve distinct versions for the same path rather than
 	// silently choosing one when independently authored metadata conflicts.
@@ -163,6 +164,9 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 	unique := make([]moduleInfo, 0, len(modules))
 	for _, module := range modules {
 		if module.path == "" || module.version == "" {
+			continue
+		}
+		if mainModule.path != "" && module.path == mainModule.path {
 			continue
 		}
 		if _, ok := seen[module]; ok {
@@ -189,8 +193,129 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 	return deps
 }
 
-func modInfoData(modules []moduleInfo) string {
-	info := &debug.BuildInfo{Deps: buildInfoDeps(modules)}
+func buildInfoMain(module moduleInfo) debug.Module {
+	if module.path == "" {
+		return debug.Module{}
+	}
+	return debug.Module{Path: module.path, Version: module.version}
+}
+
+func buildInfoSettings(buildmode string, buildTags []string, race, msan, cover, go123ArchSettings bool) []debug.BuildSetting {
+	return buildInfoSettingsFromEnv(buildmode, buildTags, race, msan, cover, runtime.GOARCH, go123ArchSettings, os.Getenv)
+}
+
+func buildInfoSettingsFromEnv(buildmode string, buildTags []string, race, msan, cover bool, hostGoarch string, go123ArchSettings bool, getenv func(string) string) []debug.BuildSetting {
+	if buildmode == "" || buildmode == "normal" {
+		buildmode = "exe"
+	}
+
+	settings := []debug.BuildSetting{
+		{Key: "-buildmode", Value: buildmode},
+		{Key: "-compiler", Value: "gc"},
+	}
+	if cover {
+		settings = append(settings, debug.BuildSetting{Key: "-cover", Value: "true"})
+	}
+	if msan {
+		settings = append(settings, debug.BuildSetting{Key: "-msan", Value: "true"})
+	}
+	if race {
+		settings = append(settings, debug.BuildSetting{Key: "-race", Value: "true"})
+	}
+	if buildTags = buildInfoTags(buildTags, race, msan); len(buildTags) > 0 {
+		settings = append(settings, debug.BuildSetting{Key: "-tags", Value: strings.Join(buildTags, ",")})
+	}
+	settings = append(settings, debug.BuildSetting{Key: "-trimpath", Value: "true"})
+
+	goarch := ""
+	for _, key := range []string{"CGO_ENABLED", "GOARCH", "GOEXPERIMENT", "GOOS"} {
+		if value := getenv(key); value != "" {
+			if key == "GOARCH" {
+				goarch = value
+			}
+			settings = append(settings, debug.BuildSetting{Key: key, Value: value})
+		}
+	}
+	if key, value := buildInfoArchSetting(goarch, hostGoarch, go123ArchSettings, getenv); key != "" && value != "" {
+		settings = append(settings, debug.BuildSetting{Key: key, Value: value})
+	}
+	return settings
+}
+
+func buildInfoTags(buildTags []string, race, msan bool) []string {
+	if len(buildTags) == 0 {
+		return nil
+	}
+	filtered := append([]string(nil), buildTags...)
+	if race {
+		filtered = stripLastBuildTag(filtered, "race")
+	}
+	if msan {
+		filtered = stripLastBuildTag(filtered, "msan")
+	}
+	return filtered
+}
+
+func stripLastBuildTag(buildTags []string, want string) []string {
+	for i := len(buildTags) - 1; i >= 0; i-- {
+		if buildTags[i] == want {
+			return append(buildTags[:i], buildTags[i+1:]...)
+		}
+	}
+	return buildTags
+}
+
+func buildInfoArchSetting(goarch, hostGoarch string, go123ArchSettings bool, getenv func(string) string) (string, string) {
+	switch goarch {
+	case "386":
+		return "GO386", firstNonEmpty(getenv("GO386"), "sse2")
+	case "amd64":
+		return "GOAMD64", firstNonEmpty(getenv("GOAMD64"), "v1")
+	case "arm":
+		if value := getenv("GOARM"); value != "" {
+			return "GOARM", value
+		}
+		if hostGoarch != "arm" || getenv("GOOS") == "android" {
+			return "GOARM", "7"
+		}
+	case "arm64":
+		if go123ArchSettings {
+			return "GOARM64", firstNonEmpty(getenv("GOARM64"), "v8.0")
+		}
+	case "mips", "mipsle":
+		return "GOMIPS", firstNonEmpty(getenv("GOMIPS"), "hardfloat")
+	case "mips64", "mips64le":
+		return "GOMIPS64", firstNonEmpty(getenv("GOMIPS64"), "hardfloat")
+	case "ppc64", "ppc64le":
+		return "GOPPC64", firstNonEmpty(getenv("GOPPC64"), "power8")
+	case "riscv64":
+		if go123ArchSettings {
+			return "GORISCV64", firstNonEmpty(getenv("GORISCV64"), "rva20u64")
+		}
+	case "wasm":
+		if value := getenv("GOWASM"); value != "" {
+			return "GOWASM", value
+		}
+	}
+	return "", ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func modInfoData(path string, mainModule moduleInfo, settings []debug.BuildSetting, modules []moduleInfo) string {
+	info := &debug.BuildInfo{
+		Path:     path,
+		Main:     buildInfoMain(mainModule),
+		Deps:     buildInfoDeps(modules, mainModule),
+		Settings: settings,
+	}
 	return buildInfoStart + info.String() + buildInfoEnd
 }
 

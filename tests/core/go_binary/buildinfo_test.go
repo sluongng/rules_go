@@ -16,6 +16,7 @@ package buildinfo_test
 
 import (
 	"encoding/json"
+	"runtime"
 	"testing"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel_testing"
@@ -25,7 +26,7 @@ func TestMain(m *testing.M) {
 	bazel_testing.TestMain(m, bazel_testing.Args{
 		Main: `
 -- BUILD.bazel --
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
 
 package_metadata(
@@ -41,6 +42,19 @@ go_binary(
         "@com_example_versionless//:go_default_library",  # Declared but not imported.
         "@com_github_google_go_cmp//cmp:go_default_library",
     ],
+)
+
+go_library(
+    name = "embedded_main",
+    srcs = ["with_dep.go"],
+    importpath = "example.com/main/cmd/embedded_wrapper",
+    applicable_licenses = [":main_package_metadata"],
+    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
+)
+
+go_binary(
+    name = "embedded_wrapper",
+    embed = [":embedded_main"],
 )
 
 go_test(
@@ -83,10 +97,20 @@ type dep struct {
 }
 
 type output struct {
-    OK          bool   ` + "`json:\"ok\"`" + `
-    MainPath    string ` + "`json:\"main_path\"`" + `
-    MainVersion string ` + "`json:\"main_version\"`" + `
-    Deps        []dep  ` + "`json:\"deps\"`" + `
+    OK          bool              ` + "`json:\"ok\"`" + `
+    Path        string            ` + "`json:\"path\"`" + `
+    MainPath    string            ` + "`json:\"main_path\"`" + `
+    MainVersion string            ` + "`json:\"main_version\"`" + `
+    Settings    map[string]string ` + "`json:\"settings\"`" + `
+    Deps        []dep             ` + "`json:\"deps\"`" + `
+}
+
+func buildSettings(info *debug.BuildInfo) map[string]string {
+    settings := make(map[string]string, len(info.Settings))
+    for _, setting := range info.Settings {
+        settings[setting.Key] = setting.Value
+    }
+    return settings
 }
 
 func main() {
@@ -95,8 +119,10 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
+        out.Settings = buildSettings(info)
         for _, module := range info.Deps {
             out.Deps = append(out.Deps, dep{Path: module.Path, Version: module.Version})
         }
@@ -121,6 +147,9 @@ func TestBuildInfoDeps(t *testing.T) {
     if !ok {
         t.Fatal("ReadBuildInfo returned ok=false")
     }
+	if info.Main.Path != "example.com/main" || info.Main.Version != "v1.0.0" {
+		t.Fatalf("got Main %+v; want example.com/main@v1.0.0", info.Main)
+	}
 
     foundCmp := false
     for _, dep := range info.Deps {
@@ -147,6 +176,7 @@ import (
 
 type output struct {
     OK          bool   ` + "`json:\"ok\"`" + `
+    Path        string ` + "`json:\"path\"`" + `
     MainPath    string ` + "`json:\"main_path\"`" + `
     MainVersion string ` + "`json:\"main_version\"`" + `
     DepCount    int    ` + "`json:\"dep_count\"`" + `
@@ -156,6 +186,7 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
         out.DepCount = len(info.Deps)
@@ -181,6 +212,7 @@ type dep struct {
 
 type output struct {
     OK          bool   ` + "`json:\"ok\"`" + `
+    Path        string ` + "`json:\"path\"`" + `
     MainPath    string ` + "`json:\"main_path\"`" + `
     MainVersion string ` + "`json:\"main_version\"`" + `
     Deps        []dep  ` + "`json:\"deps\"`" + `
@@ -192,6 +224,7 @@ func main() {
     info, ok := debug.ReadBuildInfo()
     out := output{OK: ok}
     if info != nil {
+        out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
         for _, module := range info.Deps {
@@ -359,14 +392,17 @@ type dep struct {
 }
 
 type withDepOutput struct {
-	OK          bool   `json:"ok"`
-	MainPath    string `json:"main_path"`
-	MainVersion string `json:"main_version"`
-	Deps        []dep  `json:"deps"`
+	OK          bool              `json:"ok"`
+	Path        string            `json:"path"`
+	MainPath    string            `json:"main_path"`
+	MainVersion string            `json:"main_version"`
+	Settings    map[string]string `json:"settings"`
+	Deps        []dep             `json:"deps"`
 }
 
 type stdlibOnlyOutput struct {
 	OK          bool   `json:"ok"`
+	Path        string `json:"path"`
 	MainPath    string `json:"main_path"`
 	MainVersion string `json:"main_version"`
 	DepCount    int    `json:"dep_count"`
@@ -385,8 +421,26 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
 	}
-	if got.MainPath != "" || got.MainVersion != "" {
-		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
+	if got.Path != "with_dep" {
+		t.Fatalf("got Path %q; want %q", got.Path, "with_dep")
+	}
+	if got.Settings["-buildmode"] != expectedBuildMode() {
+		t.Fatalf("got -buildmode %q; want %q", got.Settings["-buildmode"], expectedBuildMode())
+	}
+	if got.Settings["-compiler"] != "gc" {
+		t.Fatalf("got -compiler %q; want gc", got.Settings["-compiler"])
+	}
+	if got.Settings["-trimpath"] != "true" {
+		t.Fatalf("got -trimpath %q; want true", got.Settings["-trimpath"])
+	}
+	if got.Settings["GOOS"] != runtime.GOOS {
+		t.Fatalf("got GOOS %q; want %q", got.Settings["GOOS"], runtime.GOOS)
+	}
+	if got.Settings["GOARCH"] != runtime.GOARCH {
+		t.Fatalf("got GOARCH %q; want %q", got.Settings["GOARCH"], runtime.GOARCH)
+	}
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
 	}
 	if len(got.Deps) == 0 {
 		t.Fatalf("got no deps: %+v", got)
@@ -415,6 +469,50 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	}
 }
 
+func TestReadBuildInfoEmbeddedMain(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "//:embedded_wrapper")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
+	}
+	for _, dep := range got.Deps {
+		if dep.Path == "example.com/main" {
+			t.Fatalf("embedded main module was included as a dependency: %+v", got.Deps)
+		}
+	}
+}
+
+func expectedBuildMode() string {
+	switch runtime.GOOS {
+	case "android", "darwin", "ios", "windows":
+		return "pie"
+	default:
+		return "exe"
+	}
+}
+
+func TestReadBuildInfoTags(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "--@io_bazel_rules_go//go/config:tags=foo,bar", "//:with_dep")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.Settings["-tags"] != "foo,bar" {
+		t.Fatalf("got -tags %q; want foo,bar", got.Settings["-tags"])
+	}
+}
+
 func TestReadBuildInfoWithoutMetadata(t *testing.T) {
 	stdout, err := bazel_testing.BazelOutput("run", "//:stdlib_only")
 	if err != nil {
@@ -427,6 +525,9 @@ func TestReadBuildInfoWithoutMetadata(t *testing.T) {
 	}
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
+	}
+	if got.Path != "stdlib_only" {
+		t.Fatalf("got Path %q; want %q", got.Path, "stdlib_only")
 	}
 	if got.MainPath != "" || got.MainVersion != "" {
 		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
@@ -460,6 +561,9 @@ func TestReadBuildInfoVersionlessDep(t *testing.T) {
 	}
 	if !got.OK {
 		t.Fatalf("ReadBuildInfo returned ok=false: %+v", got)
+	}
+	if got.Path != "with_versionless_dep" {
+		t.Fatalf("got Path %q; want %q", got.Path, "with_versionless_dep")
 	}
 
 	foundVersionless := false

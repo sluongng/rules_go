@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"go/build"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,6 +44,11 @@ func link(args []string) error {
 	flags := flag.NewFlagSet("link", flag.ExitOnError)
 	goenv := envFlags(flags)
 	main := flags.String("main", "", "Path to the main archive.")
+	mainPackagePath := flags.String("main_package_path", "", "Import path of the main package.")
+	mainModuleMetadata := flags.String("main_module_metadata", "", "Path to the main module's package_metadata JSON file.")
+	race := flags.Bool("race", false, "Whether race instrumentation is enabled.")
+	msan := flags.Bool("msan", false, "Whether memory sanitizer instrumentation is enabled.")
+	cover := flags.Bool("cover", false, "Whether coverage instrumentation is enabled.")
 	packagePath := flags.String("p", "", "Package path of the main archive.")
 	outFile := flags.String("o", "", "Path to output file.")
 	flags.Var(&archives, "arc", "Label, package path, and file name of a dependency, separated by '='")
@@ -55,6 +61,10 @@ func link(args []string) error {
 		return err
 	}
 	if err := goenv.checkFlagsAndSetGoroot(); err != nil {
+		return err
+	}
+	go123OrLater, err := onVersion(23)
+	if err != nil {
 		return err
 	}
 
@@ -98,7 +108,22 @@ func link(args []string) error {
 		if err != nil {
 			return err
 		}
-		modinfo = modInfoData(modules)
+		mainModule := moduleInfo{}
+		if *mainModuleMetadata != "" {
+			mainModules, err := modulesFromPackageMetadataFiles([]string{*mainModuleMetadata})
+			if err != nil {
+				return err
+			}
+			if len(mainModules) > 0 {
+				mainModule = mainModules[0]
+			}
+		}
+		modinfo = modInfoData(
+			*mainPackagePath,
+			mainModule,
+			buildInfoSettings(*buildmode, build.Default.BuildTags, *race, *msan, *cover, go123OrLater),
+			modules,
+		)
 	}
 	importcfgName, err := buildImportcfgFileForLink(archives, *packageList, goenv.installSuffix, filepath.Dir(*outFile), modinfo)
 	if err != nil {
@@ -167,11 +192,7 @@ func link(args []string) error {
 	goargs = append(goargs, toolArgs...)
 	goargs = append(goargs, *main)
 
-	clearGoRoot, err := onVersion(23)
-	if err != nil {
-		return err
-	}
-	if clearGoRoot {
+	if go123OrLater {
 		// Explicitly set GOROOT to a dummy value when running linker.
 		// This ensures that the GOROOT written into the binary
 		// is constant and thus builds are reproducible.

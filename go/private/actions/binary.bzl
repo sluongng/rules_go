@@ -31,6 +31,8 @@ def emit_binary(
         name = "",
         source = None,
         test_archives = [],
+        buildinfo_path = None,
+        buildinfo_module_metadata = None,
         gc_linkopts = [],
         version_file = None,
         info_file = None,
@@ -40,6 +42,10 @@ def emit_binary(
 
     if name == "" and executable == None:
         fail("either name or executable must be set")
+    if buildinfo_path == None:
+        buildinfo_path = source.importpath
+    if buildinfo_module_metadata == None:
+        buildinfo_module_metadata = getattr(source, "_main_module_package_metadata", None)
 
     archive = go.archive(go, source)
     if not executable:
@@ -58,6 +64,8 @@ def emit_binary(
         go,
         archive = archive,
         test_archives = test_archives,
+        buildinfo_path = buildinfo_path,
+        buildinfo_module_metadata = buildinfo_module_metadata,
         executable = executable,
         gc_linkopts = gc_linkopts,
         version_file = version_file,
