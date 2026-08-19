@@ -16,6 +16,7 @@ package buildinfo_test
 
 import (
 	"encoding/json"
+	"runtime"
 	"testing"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel_testing"
@@ -83,11 +84,20 @@ type dep struct {
 }
 
 type output struct {
-    OK          bool   ` + "`json:\"ok\"`" + `
-    Path        string ` + "`json:\"path\"`" + `
-    MainPath    string ` + "`json:\"main_path\"`" + `
-    MainVersion string ` + "`json:\"main_version\"`" + `
-    Deps        []dep  ` + "`json:\"deps\"`" + `
+    OK          bool              ` + "`json:\"ok\"`" + `
+    Path        string            ` + "`json:\"path\"`" + `
+    MainPath    string            ` + "`json:\"main_path\"`" + `
+    MainVersion string            ` + "`json:\"main_version\"`" + `
+    Settings    map[string]string ` + "`json:\"settings\"`" + `
+    Deps        []dep             ` + "`json:\"deps\"`" + `
+}
+
+func buildSettings(info *debug.BuildInfo) map[string]string {
+    settings := make(map[string]string, len(info.Settings))
+    for _, setting := range info.Settings {
+        settings[setting.Key] = setting.Value
+    }
+    return settings
 }
 
 func main() {
@@ -99,6 +109,7 @@ func main() {
         out.Path = info.Path
         out.MainPath = info.Main.Path
         out.MainVersion = info.Main.Version
+        out.Settings = buildSettings(info)
         for _, module := range info.Deps {
             out.Deps = append(out.Deps, dep{Path: module.Path, Version: module.Version})
         }
@@ -365,11 +376,12 @@ type dep struct {
 }
 
 type withDepOutput struct {
-	OK          bool   `json:"ok"`
-	Path        string `json:"path"`
-	MainPath    string `json:"main_path"`
-	MainVersion string `json:"main_version"`
-	Deps        []dep  `json:"deps"`
+	OK          bool              `json:"ok"`
+	Path        string            `json:"path"`
+	MainPath    string            `json:"main_path"`
+	MainVersion string            `json:"main_version"`
+	Settings    map[string]string `json:"settings"`
+	Deps        []dep             `json:"deps"`
 }
 
 type stdlibOnlyOutput struct {
@@ -395,6 +407,21 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	}
 	if got.Path != "with_dep" {
 		t.Fatalf("got Path %q; want %q", got.Path, "with_dep")
+	}
+	if got.Settings["-buildmode"] != expectedBuildMode() {
+		t.Fatalf("got -buildmode %q; want %q", got.Settings["-buildmode"], expectedBuildMode())
+	}
+	if got.Settings["-compiler"] != "gc" {
+		t.Fatalf("got -compiler %q; want gc", got.Settings["-compiler"])
+	}
+	if got.Settings["-trimpath"] != "true" {
+		t.Fatalf("got -trimpath %q; want true", got.Settings["-trimpath"])
+	}
+	if got.Settings["GOOS"] != runtime.GOOS {
+		t.Fatalf("got GOOS %q; want %q", got.Settings["GOOS"], runtime.GOOS)
+	}
+	if got.Settings["GOARCH"] != runtime.GOARCH {
+		t.Fatalf("got GOARCH %q; want %q", got.Settings["GOARCH"], runtime.GOARCH)
 	}
 	if got.MainPath != "" || got.MainVersion != "" {
 		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
@@ -423,6 +450,30 @@ func TestReadBuildInfoDeps(t *testing.T) {
 		if dep.Path == "example.com/main" {
 			t.Fatalf("binary's own metadata was included as a dependency: %+v", got.Deps)
 		}
+	}
+}
+
+func expectedBuildMode() string {
+	switch runtime.GOOS {
+	case "android", "darwin", "ios", "windows":
+		return "pie"
+	default:
+		return "exe"
+	}
+}
+
+func TestReadBuildInfoTags(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "--@io_bazel_rules_go//go/config:tags=foo,bar", "//:with_dep")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.Settings["-tags"] != "foo,bar" {
+		t.Fatalf("got -tags %q; want foo,bar", got.Settings["-tags"])
 	}
 }
 
