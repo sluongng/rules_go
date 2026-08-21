@@ -26,8 +26,9 @@ func TestMain(m *testing.M) {
 	bazel_testing.TestMain(m, bazel_testing.Args{
 		Main: `
 -- BUILD.bazel --
-load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@package_metadata//rules:package_metadata.bzl", "package_metadata")
+load(":direct_link_binary.bzl", "direct_link_binary")
 
 package_metadata(
     name = "main_package_metadata",
@@ -44,6 +45,19 @@ go_binary(
     ],
 )
 
+go_library(
+    name = "embedded_main",
+    srcs = ["with_dep.go"],
+    importpath = "example.com/main/cmd/embedded_wrapper",
+    applicable_licenses = [":main_package_metadata"],
+    deps = ["@com_github_google_go_cmp//cmp:go_default_library"],
+)
+
+go_binary(
+    name = "embedded_wrapper",
+    embed = [":embedded_main"],
+)
+
 go_test(
     name = "with_dep_test",
     srcs = ["with_dep_test.go"],
@@ -56,6 +70,13 @@ go_binary(
     srcs = ["stdlib_only.go"],
 )
 
+direct_link_binary(
+    name = "custom_direct_link",
+    srcs = ["stdlib_only.go"],
+    importpath = "example.com/main/cmd/custom_direct_link",
+    applicable_licenses = [":main_package_metadata"],
+)
+
 go_binary(
     name = "with_versionless_dep",
     srcs = ["with_versionless_dep.go"],
@@ -66,6 +87,43 @@ go_binary(
     name = "with_vendored_dep",
     srcs = ["with_vendored_dep.go"],
     deps = ["//third_party/vendored:vendored"],
+)
+-- direct_link_binary.bzl --
+load("@io_bazel_rules_go//go:def.bzl", "go_context", "go_rule", "new_go_info")
+
+def _direct_link_binary_impl(ctx):
+    go = go_context(ctx, maybe_needs_cc_toolchain = False)
+    source = new_go_info(
+        go,
+        ctx.attr,
+        importable = False,
+        is_main = True,
+    )
+    archive = go.archive(go, source)
+    executable = go.actions.declare_file(ctx.label.name)
+    go.link(
+        go,
+        archive = archive,
+        executable = executable,
+        version_file = ctx.version_file,
+        info_file = ctx.info_file,
+    )
+    return [
+        archive,
+        DefaultInfo(
+            files = depset([executable]),
+            executable = executable,
+        ),
+    ]
+
+direct_link_binary = go_rule(
+    _direct_link_binary_impl,
+    executable = True,
+    attrs = {
+        "srcs": attr.label_list(allow_files = [".go"]),
+        "importpath": attr.string(mandatory = True),
+        "_go_context_data": attr.label(default = "@io_bazel_rules_go//:go_context_data"),
+    },
 )
 -- with_dep.go --
 package main
@@ -134,6 +192,9 @@ func TestBuildInfoDeps(t *testing.T) {
     if !ok {
         t.Fatal("ReadBuildInfo returned ok=false")
     }
+	if info.Main.Path != "example.com/main" || info.Main.Version != "v1.0.0" {
+		t.Fatalf("got Main %+v; want example.com/main@v1.0.0", info.Main)
+	}
 
     foundCmp := false
     for _, dep := range info.Deps {
@@ -423,8 +484,8 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	if got.Settings["GOARCH"] != runtime.GOARCH {
 		t.Fatalf("got GOARCH %q; want %q", got.Settings["GOARCH"], runtime.GOARCH)
 	}
-	if got.MainPath != "" || got.MainVersion != "" {
-		t.Fatalf("got Main %q %q; want empty", got.MainPath, got.MainVersion)
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
 	}
 	if len(got.Deps) == 0 {
 		t.Fatalf("got no deps: %+v", got)
@@ -449,6 +510,26 @@ func TestReadBuildInfoDeps(t *testing.T) {
 	for _, dep := range got.Deps {
 		if dep.Path == "example.com/main" {
 			t.Fatalf("binary's own metadata was included as a dependency: %+v", got.Deps)
+		}
+	}
+}
+
+func TestReadBuildInfoEmbeddedMain(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "//:embedded_wrapper")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got withDepOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
+	}
+	for _, dep := range got.Deps {
+		if dep.Path == "example.com/main" {
+			t.Fatalf("embedded main module was included as a dependency: %+v", got.Deps)
 		}
 	}
 }
@@ -498,6 +579,21 @@ func TestReadBuildInfoWithoutMetadata(t *testing.T) {
 	}
 	if got.DepCount != 0 {
 		t.Fatalf("got %d deps; want 0", got.DepCount)
+	}
+}
+
+func TestGoContextDirectLinkBuildInfo(t *testing.T) {
+	stdout, err := bazel_testing.BazelOutput("run", "//:custom_direct_link")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var got stdlibOnlyOutput
+	if err := json.Unmarshal(stdout, &got); err != nil {
+		t.Fatalf("unmarshal output %q: %v", stdout, err)
+	}
+	if got.MainPath != "example.com/main" || got.MainVersion != "v1.0.0" {
+		t.Fatalf("got Main %q %q; want example.com/main v1.0.0", got.MainPath, got.MainVersion)
 	}
 }
 

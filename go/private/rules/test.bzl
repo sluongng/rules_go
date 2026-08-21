@@ -78,7 +78,6 @@ def _go_test_impl(ctx):
         go,
         ctx.attr,
         testfilter = "exclude",
-        include_package_metadata = False,
     )
     internal_archive = go.archive(go, internal_go_info)
     if internal_archive.data._validation_output:
@@ -189,6 +188,8 @@ def _go_test_impl(ctx):
         name = ctx.label.name,
         source = test_go_info,
         test_archives = [internal_archive.data],
+        buildinfo_main_package_path = internal_go_info.importpath + ".test" if internal_go_info.importpath else None,
+        buildinfo_module_metadata = getattr(internal_go_info, "_package_metadata", None),
         gc_linkopts = test_gc_linkopts,
         version_file = ctx.version_file,
         info_file = ctx.info_file,

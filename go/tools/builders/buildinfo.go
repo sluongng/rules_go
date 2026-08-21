@@ -155,7 +155,7 @@ func moduleFromPURL(purl string) (moduleInfo, bool, error) {
 	return moduleInfo{path: modulePath, version: moduleVersion}, true, nil
 }
 
-func buildInfoDeps(modules []moduleInfo) []*debug.Module {
+func buildInfoDeps(modules []moduleInfo, mainModule moduleInfo) []*debug.Module {
 	// Package metadata is not guaranteed to come from a single MVS-resolved
 	// module graph. Preserve distinct versions for the same path rather than
 	// silently choosing one when independently authored metadata conflicts.
@@ -163,6 +163,9 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 	unique := make([]moduleInfo, 0, len(modules))
 	for _, module := range modules {
 		if module.path == "" || module.version == "" {
+			continue
+		}
+		if mainModule.path != "" && module.path == mainModule.path {
 			continue
 		}
 		if _, ok := seen[module]; ok {
@@ -187,6 +190,13 @@ func buildInfoDeps(modules []moduleInfo) []*debug.Module {
 		})
 	}
 	return deps
+}
+
+func buildInfoMain(module moduleInfo) debug.Module {
+	if module.path == "" {
+		return debug.Module{}
+	}
+	return debug.Module{Path: module.path, Version: module.version}
 }
 
 func buildInfoSettings(buildmode string, buildTags []string, race, msan, cover, go123ArchSettings bool) []debug.BuildSetting {
@@ -300,8 +310,13 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func modInfoData(path string, settings []debug.BuildSetting, modules []moduleInfo) string {
-	info := &debug.BuildInfo{Path: path, Deps: buildInfoDeps(modules), Settings: settings}
+func modInfoData(path string, mainModule moduleInfo, settings []debug.BuildSetting, modules []moduleInfo) string {
+	info := &debug.BuildInfo{
+		Path:     path,
+		Main:     buildInfoMain(mainModule),
+		Deps:     buildInfoDeps(modules, mainModule),
+		Settings: settings,
+	}
 	return buildInfoStart + info.String() + buildInfoEnd
 }
 

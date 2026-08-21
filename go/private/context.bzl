@@ -376,7 +376,6 @@ def new_go_info(
         generated_srcs = [],
         pathtype = None,
         deps = None,
-        include_package_metadata = True,
         verify_resolver_deps = False):
     if not importpath:
         importpath = go.importpath
@@ -400,12 +399,10 @@ def new_go_info(
     if deps == None:
         deps = [get_archive(dep) for dep in getattr(attr, "deps", [])]
 
-    package_metadata = None
-    if include_package_metadata:
-        package_metadata = package_metadata_file_from_metadata(
-            getattr(attr, "package_metadata", ()),
-            getattr(attr, "applicable_licenses", ()),
-        )
+    package_metadata = package_metadata_file_from_metadata(
+        getattr(attr, "package_metadata", ()),
+        getattr(attr, "applicable_licenses", ()),
+    )
 
     go_info = {
         "name": go.label.name if not name else name,
@@ -436,9 +433,6 @@ def new_go_info(
 
     for e in getattr(attr, "embed", []):
         _merge_embed(go_info, e)
-
-    if not include_package_metadata:
-        go_info["_package_metadata"] = None
 
     go_info["deps"] = _dedup_archives(go_info["deps"])
 

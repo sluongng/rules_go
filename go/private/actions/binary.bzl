@@ -35,11 +35,17 @@ def emit_binary(
         version_file = None,
         info_file = None,
         executable = None,
-        link_exec_group = None):
+        link_exec_group = None,
+        buildinfo_main_package_path = None,
+        buildinfo_module_metadata = None):
     """See go/toolchains.rst#binary for full documentation."""
 
     if name == "" and executable == None:
         fail("either name or executable must be set")
+    if buildinfo_main_package_path == None:
+        buildinfo_main_package_path = source.importpath
+    if buildinfo_module_metadata == None:
+        buildinfo_module_metadata = getattr(source, "_package_metadata", None)
 
     archive = go.archive(go, source)
     if not executable:
@@ -58,6 +64,8 @@ def emit_binary(
         go,
         archive = archive,
         test_archives = test_archives,
+        buildinfo_main_package_path = buildinfo_main_package_path,
+        buildinfo_module_metadata = buildinfo_module_metadata,
         executable = executable,
         gc_linkopts = gc_linkopts,
         version_file = version_file,

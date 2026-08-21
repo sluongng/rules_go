@@ -768,6 +768,9 @@ embedding, cgo dependencies, coverage, and assembling and packing .s files.
 It returns a tuple containing GoArchive_, the output executable file, and
 a ``runfiles`` object.
 
+.. |main package path| replace:: :param:`buildinfo_main_package_path`
+.. |module metadata| replace:: :param:`buildinfo_module_metadata`
+
 +--------------------------------+-----------------------------+-----------------------------------+
 | **Name**                       | **Type**                    | **Default value**                 |
 +--------------------------------+-----------------------------+-----------------------------------+
@@ -803,6 +806,15 @@ a ``runfiles`` object.
 +--------------------------------+-----------------------------+-----------------------------------+
 | Optional output file to write. If not set, ``binary`` will generate an output                    |
 | file name based on ``name``, the target platform, and the link mode.                             |
++--------------------------------+-----------------------------+-----------------------------------+
+| |main package path|            | :type:`string`              | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Main package path recorded in ``runtime/debug.BuildInfo``. Defaults to ``source.importpath``.    |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module metadata|              | :type:`File`                | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Package metadata JSON file used to populate ``BuildInfo.Main``. Defaults to the metadata         |
+| propagated by :param:`source`.                                                                   |
 +--------------------------------+-----------------------------+-----------------------------------+
 
 
@@ -846,6 +858,15 @@ It does not return anything.
 | :param:`info_file`             | :type:`File`                | :value:`None`                     |
 +--------------------------------+-----------------------------+-----------------------------------+
 | Info file used for link stamping.                                                                |
++--------------------------------+-----------------------------+-----------------------------------+
+| |main package path|            | :type:`string`              | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Main package path recorded in ``runtime/debug.BuildInfo``. Defaults to the archive import path.  |
++--------------------------------+-----------------------------+-----------------------------------+
+| |module metadata|              | :type:`File`                | :value:`None`                     |
++--------------------------------+-----------------------------+-----------------------------------+
+| Package metadata JSON file used to populate ``BuildInfo.Main``. Defaults to metadata propagated  |
+| by :param:`archive`.                                                                             |
 +--------------------------------+-----------------------------+-----------------------------------+
 
 

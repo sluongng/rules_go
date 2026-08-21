@@ -44,7 +44,15 @@ func link(args []string) error {
 	flags := flag.NewFlagSet("link", flag.ExitOnError)
 	goenv := envFlags(flags)
 	main := flags.String("main", "", "Path to the main archive.")
+	// The main package path populates runtime/debug.BuildInfo.Path. For example,
+	// "golang.org/x/tools/cmd/stringer" identifies the executable package.
 	mainPackagePath := flags.String("main_package_path", "", "Import path of the main package.")
+	// The main module metadata flag instead names a package metadata JSON file,
+	// for example "bazel-out/.../package-metadata.json". A PURL such as
+	// "pkg:golang/golang.org/x/tools@v0.34.0" in that file populates
+	// BuildInfo.Main as golang.org/x/tools@v0.34.0. The package and module paths
+	// differ when the executable package is below the module root.
+	mainModuleMetadata := flags.String("main_module_metadata", "", "Path to the main module's package_metadata JSON file.")
 	race := flags.Bool("race", false, "Whether race instrumentation is enabled.")
 	msan := flags.Bool("msan", false, "Whether memory sanitizer instrumentation is enabled.")
 	cover := flags.Bool("cover", false, "Whether coverage instrumentation is enabled.")
@@ -107,8 +115,19 @@ func link(args []string) error {
 		if err != nil {
 			return err
 		}
+		mainModule := moduleInfo{}
+		if *mainModuleMetadata != "" {
+			mainModules, err := modulesFromPackageMetadataFiles([]string{*mainModuleMetadata})
+			if err != nil {
+				return err
+			}
+			if len(mainModules) > 0 {
+				mainModule = mainModules[0]
+			}
+		}
 		modinfo = modInfoData(
 			*mainPackagePath,
+			mainModule,
 			buildInfoSettings(*buildmode, build.Default.BuildTags, *race, *msan, *cover, go123OrLater),
 			modules,
 		)
