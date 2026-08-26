@@ -46,6 +46,10 @@ load(
     "apple_ensure_options",
 )
 load(
+    "//go/private/actions:preprofile.bzl",
+    "emit_preprofile",
+)
+load(
     "//go/private/rules:transition.bzl",
     "non_request_nogo_transition",
 )
@@ -1058,11 +1062,13 @@ def cgo_context_data_impl(ctx):
     )
 
 def _go_config_impl(ctx):
+    toolchain = ctx.toolchains[GO_TOOLCHAIN]
+
     pgo_profiles = ctx.attr.pgoprofile.files.to_list()
     if len(pgo_profiles) > 2:
         fail("providing more than one pprof file to pgoprofile is not supported")
     if len(pgo_profiles) == 1:
-        pgoprofile = pgo_profiles[0]
+        pgoprofile = emit_preprofile(ctx, toolchain, pgo_profiles[0])
     else:
         pgoprofile = None
 
@@ -1077,8 +1083,6 @@ def _go_config_impl(ctx):
     msan = ctx.attr.msan[BuildSettingInfo].value
     if msan:
         tags.append("msan")
-
-    toolchain = ctx.toolchains[GO_TOOLCHAIN]
 
     linkmode = ctx.attr.linkmode[BuildSettingInfo].value
     if linkmode == "auto":
