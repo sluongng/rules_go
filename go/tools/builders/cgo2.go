@@ -432,26 +432,22 @@ func defaultCFlags(workDir string) []string {
 		"-ffile-prefix-map=" + abs(".") + "=.",
 		"-ffile-prefix-map=" + workDir + "=.",
 	}
-	goos, goarch := os.Getenv("GOOS"), os.Getenv("GOARCH")
+	goos := os.Getenv("GOOS")
 	switch {
 	case goos == "darwin" || goos == "ios":
 		return flags
-	case goos == "windows" && goarch == "amd64":
-		return append(flags, "-mthreads")
 	default:
 		return append(flags, "-pthread")
 	}
 }
 
 func defaultLdFlags() []string {
-	goos, goarch := os.Getenv("GOOS"), os.Getenv("GOARCH")
+	goos := os.Getenv("GOOS")
 	switch {
 	case goos == "android":
 		return []string{"-llog", "-ldl"}
 	case goos == "darwin" || goos == "ios":
 		return nil
-	case goos == "windows" && goarch == "amd64":
-		return []string{"-mthreads"}
 	default:
 		return []string{"-pthread"}
 	}
