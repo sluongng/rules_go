@@ -93,4 +93,7 @@ def go_bazel_test(rule_files = None, **kwargs):
     # Account for its JVM memory and setup time, unless the caller sizes it.
     kwargs.setdefault("size", "large")
 
+    # Nested repository rules fetch dependencies even with private test state.
+    kwargs["tags"] = kwargs.get("tags", []) + ["requires-network"]
+
     go_test(**kwargs)
